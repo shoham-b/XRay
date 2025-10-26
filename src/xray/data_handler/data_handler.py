@@ -1,4 +1,3 @@
-
 import pandas as pd
 
 from xray.path_manager import PathManager
@@ -19,5 +18,5 @@ class XRayDataManager:
     def load_all_data(self) -> dict[str, pd.DataFrame]:
         """Loads all excel files in the data directory into a dictionary of pandas DataFrames."""
         data_path = self.path_manager.get_data_path()
-        files = [f for f in data_path.glob('*.xlsx')]
+        files = [f for f in data_path.glob("*.xlsx")]
         return {f.stem: self.load_data(f.name) for f in files}

@@ -13,8 +13,12 @@ from xray.viz import plot_peak_fit, plot_scan
 
 def cli(
     input_file: Annotated[Path, typer.Option("--input", help="Input data file (Excel format).")],
-    output_dir: Annotated[Path, typer.Option("--output", help="Directory to save plots.")] = Path("artifacts"),
-    wavelength: Annotated[float, typer.Option("--wavelength", help="X-ray wavelength in Angstroms.")] = 1.5406,  # Cu K-alpha
+    output_dir: Annotated[Path, typer.Option("--output", help="Directory to save plots.")] = Path(
+        "artifacts"
+    ),
+    wavelength: Annotated[
+        float, typer.Option("--wavelength", help="X-ray wavelength in Angstroms.")
+    ] = 1.5406,  # Cu K-alpha
 ) -> int:
     """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -39,8 +43,8 @@ def cli(
     # 1. Naive Peak Finding
     naive_peak = find_peaks_naive(df)
     if not naive_peak.empty:
-        angle_naive = naive_peak['Angle'].iloc[0]
-        intensity_naive = naive_peak['Intensity'].iloc[0]
+        angle_naive = naive_peak["Angle"].iloc[0]
+        intensity_naive = naive_peak["Intensity"].iloc[0]
         d_spacing_naive = bragg_d_spacing(angle_naive, wavelength)
         print(f"Naive Peak found at: Angle = {angle_naive:.4f}°, Intensity = {intensity_naive:.2f}")
         print(f"  - Calculated d-spacing: {d_spacing_naive:.4f} Å")
@@ -50,9 +54,12 @@ def cli(
         fit_params = find_peaks_fitting(df)
         amplitude, mean_angle, stddev = fit_params
         d_spacing_fit = bragg_d_spacing(mean_angle, wavelength)
-        print(f"Fitted Peak found at: Angle = {mean_angle:.4f}°")
-        print(f"  - Fit parameters: Amplitude={amplitude:.2f}, Mean={mean_angle:.4f}, StdDev={stddev:.4f}")
-        print(f"  - Calculated d-spacing: {d_spacing_fit:.4f} Å")
+        print(f"Fitted Peak found at: Angle = {mean_angle:.4f}0")
+        print(
+            f"  - Fit parameters: Amplitude={amplitude:.2f}, "
+            f"Mean={mean_angle:.4f}, StdDev={stddev:.4f}"
+        )
+        print(f"  - Calculated d-spacing: {d_spacing_fit:.4f} 5")
     except Exception as e:
         print(f"Peak fitting failed: {e}")
         fit_params = None
@@ -78,6 +85,7 @@ def cli(
             print(f"Failed to generate fit plot: {e}")
 
     return 0
+
 
 def main() -> None:
     """Entry point that runs the Typer-powered CLI."""

@@ -9,20 +9,22 @@ def find_peaks_naive(df: pd.DataFrame) -> pd.DataFrame:
     Assumes 'Angle' and 'Intensity' columns.
     """
     # This is a very naive approach, just returns the max intensity point
-    peak_index = df['Intensity'].idxmax()
+    peak_index = df["Intensity"].idxmax()
     return df.loc[[peak_index]]
 
-def gaussian(x, amplitude, mean, stddev):
-    return amplitude * np.exp(-((x - mean) / stddev)**2 / 2)
 
-def find_peaks_fitting(df: pd.DataFrame, guess: list = None) -> tuple:
+def gaussian(x, amplitude, mean, stddev):
+    return amplitude * np.exp(-(((x - mean) / stddev) ** 2) / 2)
+
+
+def find_peaks_fitting(df: pd.DataFrame, guess: list | None = None) -> tuple:
     """
     Finds peaks by fitting a Gaussian to the data.
     Assumes 'Angle' and 'Intensity' columns.
     Returns the parameters of the fitted Gaussian (amplitude, mean, stddev).
     """
-    x_data = df['Angle']
-    y_data = df['Intensity']
+    x_data = df["Angle"]
+    y_data = df["Intensity"]
 
     if guess is None:
         # Make a reasonable guess for the parameters

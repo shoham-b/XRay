@@ -49,11 +49,13 @@ def safe_log(x: float, eps: float = 1e-12) -> float:
     """Numerically safe natural log guarding against non-positive inputs."""
     return math.log(max(x, eps))
 
+
 def gaussian(x, amplitude, mean, stddev):
     """
     Gaussian function.
     """
-    return amplitude * np.exp(-((x - mean) / stddev)**2 / 2)
+    return amplitude * np.exp(-(((x - mean) / stddev) ** 2) / 2)
+
 
 def bragg_d_spacing(two_theta_degrees: float, wavelength_angstroms: float) -> float:
     """
@@ -68,5 +70,5 @@ def bragg_d_spacing(two_theta_degrees: float, wavelength_angstroms: float) -> fl
     """
     theta_radians = math.radians(two_theta_degrees / 2)
     if theta_radians == 0:
-        return float('inf')
+        return float("inf")
     return wavelength_angstroms / (2 * math.sin(theta_radians))
