@@ -1,0 +1,1 @@
+when invoking pip and and when running etc, always use uv.

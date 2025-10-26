@@ -1,0 +1,91 @@
+[project]
+name = "xray"
+version = "0.1.0"
+description = "X-Ray diffraction analysis project"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "openpyxl>=3.1",
+    "typer>=0.12.0",
+    "matplotlib>=3.7",
+    "diskcache>=5.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "pytest-xdist>=3.5",
+    "hypothesis>=6.0",
+    "ruff==0.6.9",
+    "pre-commit>=3.6",
+]
+
+[project.scripts]
+xray = "xray.__main__:main"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+exclude = [
+    ".git",
+    ".venv",
+    ".idea",
+    ".mypy_cache",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C90", # mccabe
+    "DTZ", # flake8-datetimez
+    "SIM", # flake8-simplify
+    "PT",  # flake8-pytest-style
+    "RUF", # Ruff rules
+]
+ignore = [
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --cov=xray --cov-report=xml --cov-report=term-missing --cov-report=html"
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = [
+    "error::DeprecationWarning",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.141.1",
+    "pre-commit>=3.6",
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "pytest-xdist>=3.5",
+    "ruff==0.6.9",
+]

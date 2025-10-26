@@ -1,0 +1,23 @@
+exclude: |
+  (?x)^(
+    \.hypothesis/|
+    htmlcov/|
+    artifacts/|
+    build/|
+    dist/|
+    \.venv/|
+    \.mypy_cache/|
+    \.idea/|
+    \.pytest_cache/|
+    uv\.lock|
+    coverage\.xml|
+    \.coverage.*|
+    .*\.pyc
+  )$
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
