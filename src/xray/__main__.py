@@ -6,83 +6,117 @@ from typing import Annotated
 import pandas as pd
 import typer
 
-from xray.analysis.peak_finding import find_peaks_fitting, find_peaks_naive
+from xray.analysis.peak_finding import (
+    find_all_peaks_fitting,
+    find_all_peaks_naive,
+    fit_global_background,
+)
 from xray.mathutils import bragg_d_spacing
-from xray.viz import plot_peak_fit, plot_scan
+from xray.viz import plot_analysis_summary
 
 
 def cli(
-    input_file: Annotated[Path, typer.Option("--input", help="Input data file (Excel format).")],
+    input_file: Annotated[
+        Path, typer.Option("--input", help="Input data file (CSV format).")
+    ] = Path("data/dummy.csv"),
+    data_dir: Annotated[
+        Path | None,
+        typer.Option("--data-dir", help="Base directory to resolve --input if it's relative."),
+    ] = None,
     output_dir: Annotated[Path, typer.Option("--output", help="Directory to save plots.")] = Path(
         "artifacts"
     ),
     wavelength: Annotated[
         float, typer.Option("--wavelength", help="X-ray wavelength in Angstroms.")
-    ] = 1.5406,  # Cu K-alpha
+    ] = 1.5406,  # Cu K-alpha,
+    threshold: Annotated[
+        float,
+        typer.Option("--threshold", help="Relative height threshold (0-1) for peak detection."),
+    ] = 0.1,
+    distance: Annotated[
+        int, typer.Option("--distance", help="Minimum number of points between peaks.")
+    ] = 5,
+    window: Annotated[
+        int,
+        typer.Option("--window", help="Half-window size in points used for local Voigt fitting."),
+    ] = 20,
+    prominence: Annotated[
+        float | None,
+        typer.Option("--prominence", help="Relative prominence (0-1) for peak detection."),
+    ] = 0.1,
+    width: Annotated[
+        int | None, typer.Option("--width", help="Minimum peak width in points for detection.")
+    ] = None,
 ) -> int:
     """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Load data
     try:
-        # The data manager is instantiated without arguments, assuming default paths.
-        # For a CLI, it's better to work with the direct file path provided.
-        df = pd.read_excel(input_file)
+        input_path = (
+            (data_dir / input_file)
+            if (data_dir is not None and not input_file.is_absolute())
+            else input_file
+        )
+        try:
+            df = pd.read_csv(input_path)
+        except Exception as e:
+            print(f"Warning: Failed to load CSV with UTF-8 ({e}), retrying with 'latin1' encoding.")
+            df = pd.read_csv(input_path, encoding="latin1")
     except FileNotFoundError:
-        print(f"Error: Input file not found at {input_file}")
+        print(f"Error: Input file not found at {input_path}")
         return 1
     except Exception as e:
-        print(f"Error loading data: {e}")
+        print(f"Error loading CSV file: {e}")
         return 1
 
-    print(f"Successfully loaded data from {input_file}")
+    # Data Prep
+    df.columns = df.columns.str.strip()
+    angle_col = next((col for col in df.columns if "b /" in col), None)
+    intensity_col = next((col for col in df.columns if "R_0" in col), None)
+    if not angle_col or not intensity_col:
+        angle_col = next((col for col in df.columns if "Angle" in col), "Angle")
+        intensity_col = next((col for col in df.columns if "Intensity" in col), "Intensity")
+
+    rename_map = {angle_col: "Angle", intensity_col: "Intensity"}
+    df = df.rename(columns=rename_map)
+
+    print(f"Successfully loaded data from {input_path}")
 
     # --- Peak Analysis ---
     print("\n--- Peak Analysis ---")
+    initial_peaks = find_all_peaks_naive(
+        df, threshold=threshold, distance=distance, prominence=prominence, width=width
+    )
+    print(f"Found {len(initial_peaks)} initial peaks.")
 
-    # 1. Naive Peak Finding
-    naive_peak = find_peaks_naive(df)
-    if not naive_peak.empty:
-        angle_naive = naive_peak["Angle"].iloc[0]
-        intensity_naive = naive_peak["Intensity"].iloc[0]
-        d_spacing_naive = bragg_d_spacing(angle_naive, wavelength)
-        print(f"Naive Peak found at: Angle = {angle_naive:.4f}°, Intensity = {intensity_naive:.2f}")
-        print(f"  - Calculated d-spacing: {d_spacing_naive:.4f} Å")
+    print("\n--- Fitting Global Background ---")
+    bg_params = fit_global_background(df, initial_peaks, window=window)
+    if bg_params is None:
+        print("Background fitting failed. Proceeding without background subtraction.")
+        # Create a dummy background function that returns zero
+        bg_params = (0, 0, 1)
 
-    # 2. Peak Fitting
-    try:
-        fit_params = find_peaks_fitting(df)
-        amplitude, mean_angle, stddev = fit_params
-        d_spacing_fit = bragg_d_spacing(mean_angle, wavelength)
-        print(f"Fitted Peak found at: Angle = {mean_angle:.4f}0")
-        print(
-            f"  - Fit parameters: Amplitude={amplitude:.2f}, "
-            f"Mean={mean_angle:.4f}, StdDev={stddev:.4f}"
-        )
-        print(f"  - Calculated d-spacing: {d_spacing_fit:.4f} 5")
-    except Exception as e:
-        print(f"Peak fitting failed: {e}")
-        fit_params = None
+    print("\n--- Fitting All Peaks (Double Voigt on Subtracted BG) ---")
+    all_fits = find_all_peaks_fitting(df, initial_peaks, bg_params, window=window)
+
+    valid_fits = [fit for fit in all_fits if fit[1] is not None]
+    print(f"Successfully fit {len(valid_fits)} peaks out of {len(initial_peaks)} detected.")
+
+    for i, (_peak_idx, fit_params, _fit_peak) in enumerate(valid_fits):
+        if fit_params is not None:
+            amp_a, mean_a, _, _, _ = fit_params
+            d_spacing_fit = bragg_d_spacing(mean_a, wavelength)
+            print(f"  Fit {i+1}: K-a at {mean_a:.4f}°, d={d_spacing_fit:.4f} Å")
 
     # --- Visualization ---
-    print("\n--- Generating Plots ---")
-
-    # 1. Raw Scan Plot
-    scan_plot_path = output_dir / f"{input_file.stem}_scan.png"
+    print("\n--- Generating Plot ---")
+    summary_plot_path = output_dir / f"{input_path.stem}_analysis_summary.png"
     try:
-        plot_scan(df, scan_plot_path)
-        print(f"Saved scan plot to: {scan_plot_path}")
+        plot_analysis_summary(df, initial_peaks, valid_fits, bg_params, summary_plot_path)
+        print(f"Saved analysis summary plot to: {summary_plot_path}")
     except Exception as e:
-        print(f"Failed to generate scan plot: {e}")
-
-    # 2. Peak Fit Plot
-    if fit_params:
-        fit_plot_path = output_dir / f"{input_file.stem}_fit.png"
-        try:
-            plot_peak_fit(df, fit_params, fit_plot_path)
-            print(f"Saved peak fit plot to: {fit_plot_path}")
-        except Exception as e:
-            print(f"Failed to generate fit plot: {e}")
+        print(f"Failed to generate analysis summary plot: {e}")
 
     return 0
 
