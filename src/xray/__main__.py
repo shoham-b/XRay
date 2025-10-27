@@ -3,16 +3,162 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated
 
+import numpy as np
 import pandas as pd
 import typer
+from rich.console import Console
+from scipy.signal import find_peaks
 
 from xray.analysis.peak_finding import (
+    bremsstrahlung_bg,
+    double_voigt,
     find_all_peaks_fitting,
     find_all_peaks_naive,
     fit_global_background,
 )
-from xray.mathutils import bragg_d_spacing
-from xray.viz import plot_analysis_summary
+from xray.mathutils import bragg_d_spacing, find_most_probable_d
+from xray.viz import create_interactive_report
+
+
+def load_and_prep_data(input_path: Path, console: Console) -> pd.DataFrame | None:
+    """Loads and prepares the XRD data from a CSV file."""
+    try:
+        df = pd.read_csv(input_path)
+    except FileNotFoundError:
+        console.print(f"[bold red]Error: Input file not found at {input_path}[/bold red]")
+        return None
+    except Exception as e:
+        console.print(f"[bold red]Error loading CSV file: {e}[/bold red]")
+        return None
+
+    df.columns = df.columns.str.strip()
+    angle_col = next((col for col in df.columns if "b /" in col), "Angle")
+    intensity_col = next((col for col in df.columns if "R_0" in col), "Intensity")
+    df = df.rename(columns={angle_col: "Angle", intensity_col: "Intensity"})
+    console.print(f"Successfully loaded data from [cyan]{input_path}[/cyan]")
+    return df
+
+
+def perform_peak_analysis(df: pd.DataFrame, params: dict, console: Console) -> dict:
+    """Performs the core peak finding and fitting analysis."""
+    console.print("\n[bold]--- Peak Analysis ---[/bold]")
+    initial_peaks_idx = find_all_peaks_naive(df, **params)
+    console.print(f"Found {len(initial_peaks_idx)} initial candidate peaks.")
+
+    console.print("\n[bold]--- Fitting Global Background ---[/bold]")
+    bg_params = fit_global_background(df, initial_peaks_idx, window=params["window"])
+    if bg_params is None:
+        console.print("[yellow]Background fitting failed. Using a zero background.[/yellow]")
+        bg_params = (0, 0, 1)
+
+    console.print("\n[bold]--- Fitting Peak Pairs ---[/bold]")
+    all_fits = find_all_peaks_fitting(df, initial_peaks_idx, bg_params, window=params["window"])
+    valid_fits = [fit for fit in all_fits if fit[1] is not None]
+    console.print(f"Successfully fit {len(valid_fits)} out of {len(all_fits)} peak pairs.")
+
+    return {
+        "initial_peaks_idx": initial_peaks_idx,
+        "bg_params": bg_params,
+        "all_fits": all_fits,
+        "valid_fits": valid_fits,
+    }
+
+
+def generate_summary_tables(
+    df: pd.DataFrame, analysis_results: dict, wavelength: float
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Generates summary tables for peak details and d-spacing."""
+    # Create Peak Details Table
+    peak_table_data = []
+    d_fitted_ka = []
+    d_fitted_kb = []
+
+    for i, (initial_idx, fit_params, _) in enumerate(analysis_results["all_fits"]):
+        if fit_params is not None:
+            mean_a = fit_params[1]
+            d_a = bragg_d_spacing(mean_a, wavelength)
+            d_fitted_ka.append(d_a)
+
+            mean_b = np.rad2deg(2 * np.arcsin(np.sin(np.deg2rad(mean_a) / 2) * 0.9036))
+            d_b = bragg_d_spacing(mean_b, wavelength)
+            d_fitted_kb.append(d_b)
+
+            peak_table_data.append(
+                {
+                    "Peak Pair": i + 1,
+                    "K-a Angle": f"{mean_a:.4f}",
+                    "K-a d (Å)": f"{d_a:.4f}",
+                    "K-b Angle": f"{mean_b:.4f}",
+                    "K-b d (Å)": f"{d_b:.4f}",
+                }
+            )
+        else:
+            initial_angle = df["Angle"].iloc[initial_idx]
+            peak_table_data.append(
+                {
+                    "Peak Pair": i + 1,
+                    "K-a Angle": f"Fit Failed @ {initial_angle:.2f}°",
+                    "K-a d (Å)": "-",
+                    "K-b Angle": "-",
+                    "K-b d (Å)": "-",
+                }
+            )
+    peak_df = pd.DataFrame(peak_table_data)
+
+    # Create d-spacing Summary Table
+    d_initial = [
+        bragg_d_spacing(df["Angle"].iloc[i], wavelength)
+        for i in analysis_results["initial_peaks_idx"]
+    ]
+    angles = df["Angle"].values
+    y_total_fit = bremsstrahlung_bg(angles, *analysis_results["bg_params"])
+    for _, fit_params, _ in analysis_results["valid_fits"]:
+        y_total_fit += double_voigt(angles, *fit_params)
+    final_model_peaks_idx, _ = find_peaks(y_total_fit, height=y_total_fit.max() * 0.05, distance=5)
+    d_final_model = [bragg_d_spacing(angles[i], wavelength) for i in final_model_peaks_idx]
+
+    sources = {
+        "Initial (Naive) Peaks": d_initial,
+        "Fitted K-alpha Peaks": d_fitted_ka,
+        "Fitted K-beta Peaks": d_fitted_kb,
+        "Final Model Peaks": d_final_model,
+    }
+
+    summary_data = []
+    for name, d_list in sources.items():
+        if d_list:
+            result = find_most_probable_d(d_list)
+            if result:
+                mean_d, std_d, num_peaks = result
+                summary_data.append(
+                    {
+                        "Data Source": name,
+                        "Most Probable d (Å)": f"{mean_d:.4f}",
+                        "Error (sigma)": f"{std_d:.4f}",
+                        "Peaks Used": num_peaks,
+                    }
+                )
+            else:
+                summary_data.append(
+                    {
+                        "Data Source": name,
+                        "Most Probable d (Å)": "Analysis Failed",
+                        "Error (sigma)": "-",
+                        "Peaks Used": len(d_list),
+                    }
+                )
+        else:
+            summary_data.append(
+                {
+                    "Data Source": name,
+                    "Most Probable d (Å)": "-",
+                    "Error (sigma)": "-",
+                    "Peaks Used": 0,
+                }
+            )
+    summary_df = pd.DataFrame(summary_data)
+
+    return peak_df, summary_df
 
 
 def cli(
@@ -32,7 +178,7 @@ def cli(
     threshold: Annotated[
         float,
         typer.Option("--threshold", help="Relative height threshold (0-1) for peak detection."),
-    ] = 0.1,
+    ] = 0.05,
     distance: Annotated[
         int, typer.Option("--distance", help="Minimum number of points between peaks.")
     ] = 5,
@@ -43,80 +189,65 @@ def cli(
     prominence: Annotated[
         float | None,
         typer.Option("--prominence", help="Relative prominence (0-1) for peak detection."),
-    ] = 0.1,
+    ] = 0.05,
     width: Annotated[
         int | None, typer.Option("--width", help="Minimum peak width in points for detection.")
     ] = None,
 ) -> int:
     """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
+    console = Console()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load data
-    try:
-        input_path = (
-            (data_dir / input_file)
-            if (data_dir is not None and not input_file.is_absolute())
-            else input_file
-        )
-        try:
-            df = pd.read_csv(input_path)
-        except Exception as e:
-            print(f"Warning: Failed to load CSV with UTF-8 ({e}), retrying with 'latin1' encoding.")
-            df = pd.read_csv(input_path, encoding="latin1")
-    except FileNotFoundError:
-        print(f"Error: Input file not found at {input_path}")
-        return 1
-    except Exception as e:
-        print(f"Error loading CSV file: {e}")
-        return 1
-
-    # Data Prep
-    df.columns = df.columns.str.strip()
-    angle_col = next((col for col in df.columns if "b /" in col), None)
-    intensity_col = next((col for col in df.columns if "R_0" in col), None)
-    if not angle_col or not intensity_col:
-        angle_col = next((col for col in df.columns if "Angle" in col), "Angle")
-        intensity_col = next((col for col in df.columns if "Intensity" in col), "Intensity")
-
-    rename_map = {angle_col: "Angle", intensity_col: "Intensity"}
-    df = df.rename(columns=rename_map)
-
-    print(f"Successfully loaded data from {input_path}")
-
-    # --- Peak Analysis ---
-    print("\n--- Peak Analysis ---")
-    initial_peaks = find_all_peaks_naive(
-        df, threshold=threshold, distance=distance, prominence=prominence, width=width
+    input_path = (
+        (data_dir / input_file)
+        if (data_dir is not None and not input_file.is_absolute())
+        else input_file
     )
-    print(f"Found {len(initial_peaks)} initial peaks.")
+    df = load_and_prep_data(input_path, console)
+    if df is None:
+        return 1
 
-    print("\n--- Fitting Global Background ---")
-    bg_params = fit_global_background(df, initial_peaks, window=window)
-    if bg_params is None:
-        print("Background fitting failed. Proceeding without background subtraction.")
-        # Create a dummy background function that returns zero
-        bg_params = (0, 0, 1)
+    analysis_params = {
+        "threshold": threshold,
+        "distance": distance,
+        "prominence": prominence,
+        "width": width,
+        "window": window,
+    }
+    analysis_results = perform_peak_analysis(df, analysis_params, console)
 
-    print("\n--- Fitting All Peaks (Double Voigt on Subtracted BG) ---")
-    all_fits = find_all_peaks_fitting(df, initial_peaks, bg_params, window=window)
+    peak_df, summary_df = generate_summary_tables(df, analysis_results, wavelength)
 
-    valid_fits = [fit for fit in all_fits if fit[1] is not None]
-    print(f"Successfully fit {len(valid_fits)} peaks out of {len(initial_peaks)} detected.")
+    # --- Console Output ---
+    console.print("\n[bold]--- Peak Analysis Results ---[/bold]")
+    console.print(peak_df.to_string(index=False))
+    console.print("\n[bold]--- Most Probable d-spacing ---[/bold]")
+    console.print(summary_df.to_string(index=False))
 
-    for i, (_peak_idx, fit_params, _fit_peak) in enumerate(valid_fits):
-        if fit_params is not None:
-            amp_a, mean_a, _, _, _ = fit_params
-            d_spacing_fit = bragg_d_spacing(mean_a, wavelength)
-            print(f"  Fit {i+1}: K-a at {mean_a:.4f}°, d={d_spacing_fit:.4f} Å")
-
-    # --- Visualization ---
-    print("\n--- Generating Plot ---")
-    summary_plot_path = output_dir / f"{input_path.stem}_analysis_summary.png"
+    # --- HTML Report ---
+    console.print("\n[bold]--- Generating HTML Report ---[/bold]")
+    report_path = output_dir / "index.html"
     try:
-        plot_analysis_summary(df, initial_peaks, valid_fits, bg_params, summary_plot_path)
-        print(f"Saved analysis summary plot to: {summary_plot_path}")
+        y_total_fit = bremsstrahlung_bg(df["Angle"].values, *analysis_results["bg_params"])
+        for _, fit_params, _ in analysis_results["valid_fits"]:
+            y_total_fit += double_voigt(df["Angle"].values, *fit_params)
+        final_model_peaks_idx, _ = find_peaks(
+            y_total_fit, height=y_total_fit.max() * 0.05, distance=5
+        )
+
+        create_interactive_report(
+            df,
+            analysis_results["initial_peaks_idx"],
+            analysis_results["valid_fits"],
+            analysis_results["bg_params"],
+            final_model_peaks_idx,
+            peak_df,
+            summary_df,
+            report_path,
+        )
+        console.print(f"Saved interactive report to [cyan]{report_path}[/cyan]")
     except Exception as e:
-        print(f"Failed to generate analysis summary plot: {e}")
+        console.print(f"[bold red]Failed to generate interactive report: {e}[/bold red]")
 
     return 0
 

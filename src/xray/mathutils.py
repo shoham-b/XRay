@@ -1,74 +1,41 @@
-"""Unified math utilities for X-Ray analysis.
-
-This module centralizes small math helpers used across the project to avoid
-duplicating functionality in subpackages.
-"""
-
-from __future__ import annotations
-
-import math
-from collections.abc import Iterable
-
 import numpy as np
+from scipy.stats import gaussian_kde
 
 
-def normalized_sum(values: Iterable[float]) -> float:
-    """Return the sum of values after normalizing them into [0, 1] range.
+def bragg_d_spacing(two_theta: float, wavelength: float) -> float:
+    """Calculates d-spacing from the Bragg angle."""
+    theta_rad = np.deg2rad(two_theta / 2.0)
+    return wavelength / (2 * np.sin(theta_rad))
 
-    If the iterable is empty, returns 0.0.
-    If all values are equal, returns 0.0 (since normalization would divide by zero otherwise).
+
+def find_most_probable_d(
+    d_spacings: list[float],
+) -> tuple[float, float, int] | None:
     """
-    vals = list(values)
-    if not vals:
-        return 0.0
-    vmin = min(vals)
-    vmax = max(vals)
-    span = vmax - vmin
-    if span == 0:
-        return 0.0
-
-    # Handle extreme floating-point values that could cause NaN
-    if not math.isfinite(span) or span == 0:
-        return 0.0
-
-    total = 0.0
-    for v in vals:
-        if math.isfinite(v):
-            normalized = (v - vmin) / span
-            if math.isfinite(normalized):
-                total += normalized
-    return total
-
-
-def clamp(v: float, lo: float, hi: float) -> float:
-    """Clamp a value into the [lo, hi] range."""
-    return max(lo, min(hi, v))
-
-
-def safe_log(x: float, eps: float = 1e-12) -> float:
-    """Numerically safe natural log guarding against non-positive inputs."""
-    return math.log(max(x, eps))
-
-
-def gaussian(x, amplitude, mean, stddev):
-    """
-    Gaussian function.
-    """
-    return amplitude * np.exp(-(((x - mean) / stddev) ** 2) / 2)
-
-
-def bragg_d_spacing(two_theta_degrees: float, wavelength_angstroms: float) -> float:
-    """
-    Calculates d-spacing using Bragg's Law for first-order diffraction (n=1).
-
-    Args:
-        two_theta_degrees: The diffraction angle (2-theta) in degrees.
-        wavelength_angstroms: The wavelength of the X-ray source in Angstroms.
+    Finds the most probable d-spacing from a list of values using KDE.
 
     Returns:
-        The d-spacing in Angstroms.
+        A tuple containing:
+        - The most probable d-spacing (mode of the KDE).
+        - The standard deviation of the input d-spacings.
+        - The number of d-spacings used.
     """
-    theta_radians = math.radians(two_theta_degrees / 2)
-    if theta_radians == 0:
-        return float("inf")
-    return wavelength_angstroms / (2 * math.sin(theta_radians))
+    if not d_spacings or len(d_spacings) < 2:
+        return None
+
+    d_array = np.array(d_spacings)
+
+    # Use KDE to find the most probable value (the peak of the distribution)
+    try:
+        kde = gaussian_kde(d_array)
+        d_range = np.linspace(d_array.min(), d_array.max(), 500)
+        kde_values = kde(d_range)
+        most_probable_d = d_range[np.argmax(kde_values)]
+    except Exception:
+        # Fallback to mean if KDE fails for any reason
+        most_probable_d = np.mean(d_array)
+
+    std_d = np.std(d_array)
+    num_peaks = len(d_array)
+
+    return most_probable_d, std_d, num_peaks

@@ -8,10 +8,12 @@ import pandas as pd
 try:
     import matplotlib.pyplot as plt
     import numpy as np
+    import plotly.graph_objects as go
     from scipy.special import wofz
 except ImportError:
     plt = None
     np = None
+    go = None
     wofz = None
 
 
@@ -45,79 +47,129 @@ def double_voigt(x, amp_a, mean_a, sigma, gamma, amp_b_ratio):
     return voigt(x, amp_a, mean_a, sigma, gamma) + voigt(x, amp_b, mean_b, sigma, gamma)
 
 
-def plot_analysis_summary(
+def create_interactive_report(
     df: pd.DataFrame,
     initial_peaks: np.ndarray,
     all_fits: list,
     bg_params: tuple | None,
+    final_model_peaks: np.ndarray,
+    peak_table: pd.DataFrame,
+    summary_table: pd.DataFrame,
     out_path: Path,
 ) -> Path:
-    """Plots a comprehensive summary of the peak analysis with a global background."""
-    _ensure_out_dir(out_path.parent)
-    if plt is None or df.empty or np is None:
+    """Creates a self-contained HTML report with an interactive plot and summary tables."""
+    if go is None or df.empty or np is None:
         return out_path
 
-    fig, ax = plt.subplots(figsize=(15, 8))
+    fig = go.Figure()
     x_data = df["Angle"].values
     y_data = df["Intensity"].values
 
-    # 1. Plot raw data
-    ax.plot(x_data, y_data, ".", label="Raw Data", color="gray", alpha=0.6)
+    # 1. Raw data
+    fig.add_trace(
+        go.Scatter(
+            x=x_data, y=y_data, mode="markers", name="Raw Data", marker=dict(color="gray", size=4)
+        )
+    )
 
-    # 2. Plot initial peaks
+    # 2. Initial peaks
     if initial_peaks.size > 0:
-        ax.plot(
-            x_data[initial_peaks],
-            y_data[initial_peaks],
-            "x",
-            color="red",
-            markersize=10,
-            mew=2,
-            label="Initial Peaks",
+        fig.add_trace(
+            go.Scatter(
+                x=x_data[initial_peaks],
+                y=y_data[initial_peaks],
+                mode="markers",
+                name="Initial Peaks",
+                marker=dict(color="red", size=10, symbol="x"),
+            )
         )
 
-    # 3. Plot global background and total fit
+    # 3. Global background and total fit
     if bg_params is not None:
         x_fit_global = np.linspace(x_data.min(), x_data.max(), 1000)
         y_bg_global = bremsstrahlung_bg(x_fit_global, *bg_params)
-        ax.plot(x_fit_global, y_bg_global, "--", color="green", label="Global Bremsstrahlung BG")
+        fig.add_trace(
+            go.Scatter(
+                x=x_fit_global,
+                y=y_bg_global,
+                mode="lines",
+                name="Global BG Fit",
+                line=dict(color="green", dash="dash"),
+            )
+        )
 
         y_total_fit = bremsstrahlung_bg(x_data, *bg_params)
-        fit_plotted = False
         for _, fit_params, _ in all_fits:
             if fit_params is not None:
                 y_total_fit += double_voigt(x_data, *fit_params)
 
-                # Add markers for the fitted peak positions
-                amp_a, mean_a, _, _, amp_b_ratio = fit_params
-                mean_b = np.rad2deg(2 * np.arcsin(np.sin(np.deg2rad(mean_a) / 2) * 0.9036))
-                ax.axvline(
-                    x=mean_a,
-                    color="blue",
-                    linestyle="--",
-                    linewidth=1,
-                    label="Fitted K-a" if not fit_plotted else None,
+        fig.add_trace(
+            go.Scatter(
+                x=x_data,
+                y=y_total_fit,
+                mode="lines",
+                name="Total Combined Fit",
+                line=dict(color="orange", width=3),
+            )
+        )
+
+        # 4. Final model peaks
+        if final_model_peaks.size > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=x_data[final_model_peaks],
+                    y=y_total_fit[final_model_peaks],
+                    mode="markers",
+                    name="Final Model Peaks",
+                    marker=dict(color="purple", size=12, symbol="cross"),
                 )
-                ax.axvline(
-                    x=mean_b,
-                    color="purple",
-                    linestyle=":",
-                    linewidth=1,
-                    label="Fitted K-β" if not fit_plotted else None,
-                )
-                fit_plotted = True
+            )
 
-        ax.plot(x_data, y_total_fit, "-", color="orange", linewidth=2.5, label="Total Combined Fit")
+    fig.update_layout(
+        title="X-Ray Diffraction Analysis Summary",
+        xaxis_title="Angle (2θ)",
+        yaxis_title="Intensity (counts)",
+        legend_title="Legend",
+    )
 
-    ax.set_xlabel("Angle (2θ)")
-    ax.set_ylabel("Intensity (counts)")
-    ax.set_title("X-Ray Diffraction Analysis Summary")
-    ax.grid(True, which="both", linestyle="--", linewidth=0.5)
-    ax.legend()
-    ax.set_ylim(bottom=0)
-    ax.set_xlim(x_data.min(), x_data.max())
+    # Convert tables to HTML
+    peak_table_html = peak_table.to_html(
+        classes="table table-striped table-hover", justify="center"
+    )
+    summary_table_html = summary_table.to_html(
+        classes="table table-striped table-hover", justify="center"
+    )
 
-    fig.tight_layout()
-    fig.savefig(out_path.as_posix(), dpi=150)
-    plt.close(fig)
+    # Create HTML report
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>X-Ray Analysis Report</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+        <style>
+            body {{ font-family: sans-serif; padding: 2rem; }}
+            .table-container {{ margin-top: 2rem; }}
+        </style>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <h1>X-Ray Diffraction Analysis Report</h1>
+            <div id="plot">{fig.to_html(full_html=False, include_plotlyjs='cdn')}</div>
+            <div class="table-container">
+                <h2>Fitted Peak Details</h2>
+                {peak_table_html}
+            </div>
+            <div class="table-container">
+                <h2>d-spacing Summary</h2>
+                {summary_table_html}
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+
+    with open(out_path, "w") as f:
+        f.write(html_content)
+
     return out_path

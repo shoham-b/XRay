@@ -6,19 +6,21 @@ GRAPHS_DIR="$OUT_DIR/graphs"
 TEMPLATE=${2:-scripts/pages_index.html}
 
 # Generate graphs via project CLI
-uv run python -m xray --out "$OUT_DIR" --repeats 5 --seed 123 --loc-max-steps 150
+uv run python -m xray --output "$OUT_DIR"
 
 # Build gallery entries
 mkdir -p "$GRAPHS_DIR"
 tmp_gallery="$GRAPHS_DIR/.gallery.html"
 : > "$tmp_gallery"
 shopt -s nullglob
-for f in "$GRAPHS_DIR"/*; do
+for f in "$OUT_DIR"/*; do
   [ -f "$f" ] || continue
   name=$(basename "$f")
   ext=${name##*.}
+  # Move the file to the graphs directory
+  mv "$f" "$GRAPHS_DIR/$name"
   case "${ext,,}" in
-    png|jpg|jpeg|gif|svg|webp)
+    png|jpg|jpeg|gif|svg|webp|html)
       echo "<figure><a href=\"$name\"><img src=\"$name\" alt=\"$name\"></a><figcaption>$name</figcaption></figure>" >> "$tmp_gallery" ;;
     *)
       echo "<p><a href=\"$name\">$name</a></p>" >> "$tmp_gallery" ;;
