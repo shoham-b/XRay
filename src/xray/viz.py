@@ -2,19 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
-
 # Use a soft import guard to avoid import errors in environments without matplotlib at build time
-try:
-    import matplotlib.pyplot as plt
-    import numpy as np
-    import plotly.graph_objects as go
-    from scipy.special import wofz
-except ImportError:
-    plt = None
-    np = None
-    go = None
-    wofz = None
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from scipy.special import wofz
 
 
 def _ensure_out_dir(out_dir: Path) -> None:
@@ -155,7 +147,7 @@ def create_interactive_report(
     <body>
         <div class="container-fluid">
             <h1>X-Ray Diffraction Analysis Report</h1>
-            <div id="plot">{fig.to_html(full_html=False, include_plotlyjs='cdn')}</div>
+            <div id="plot">{fig.to_html(full_html=False, include_plotlyjs=True)}</div>
             <div class="table-container">
                 <h2>Fitted Peak Details</h2>
                 {peak_table_html}
@@ -169,7 +161,8 @@ def create_interactive_report(
     </html>
     """
 
-    with open(out_path, "w") as f:
+    _ensure_out_dir(out_path.parent)
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(html_content)
 
     return out_path

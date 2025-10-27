@@ -4,6 +4,8 @@ from scipy.optimize import curve_fit
 from scipy.signal import find_peaks
 from scipy.special import wofz
 
+from xray.cache import cached
+
 
 def find_all_peaks_naive(
     df: pd.DataFrame,
@@ -36,6 +38,7 @@ def bremsstrahlung_bg(x, bg_amp, x_offset, bg_scale):
     return bg_amp * x_shifted * np.exp(-x_shifted / (bg_scale + 1e-9))
 
 
+@cached
 def fit_global_background(
     df: pd.DataFrame, initial_peaks: np.ndarray, window: int = 20
 ) -> tuple | None:
@@ -75,6 +78,7 @@ def double_voigt(x, amp_a, mean_a, sigma, gamma, amp_b_ratio):
     return voigt(x, amp_a, mean_a, sigma, gamma) + voigt(x, amp_b, mean_b, sigma, gamma)
 
 
+@cached
 def find_all_peaks_fitting(
     df: pd.DataFrame,
     initial_peaks: np.ndarray,

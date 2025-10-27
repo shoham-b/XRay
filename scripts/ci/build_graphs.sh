@@ -6,7 +6,7 @@ GRAPHS_DIR="$OUT_DIR/graphs"
 TEMPLATE=${2:-scripts/pages_index.html}
 
 # Generate graphs via project CLI
-uv run python -m xray --output "$OUT_DIR"
+uv run python -m xray --input data/nacl1.csv --output "$OUT_DIR"
 
 # Build gallery entries
 mkdir -p "$GRAPHS_DIR"

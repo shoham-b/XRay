@@ -6,6 +6,7 @@ from typing import Annotated
 import numpy as np
 import pandas as pd
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from scipy.signal import find_peaks
 
@@ -18,6 +19,9 @@ from xray.analysis.peak_finding import (
 )
 from xray.mathutils import bragg_d_spacing, find_most_probable_d
 from xray.viz import create_interactive_report
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def load_and_prep_data(input_path: Path, console: Console) -> pd.DataFrame | None:
@@ -42,7 +46,13 @@ def load_and_prep_data(input_path: Path, console: Console) -> pd.DataFrame | Non
 def perform_peak_analysis(df: pd.DataFrame, params: dict, console: Console) -> dict:
     """Performs the core peak finding and fitting analysis."""
     console.print("\n[bold]--- Peak Analysis ---[/bold]")
-    initial_peaks_idx = find_all_peaks_naive(df, **params)
+    naive_params = {
+        "threshold": params.get("threshold"),
+        "distance": params.get("distance"),
+        "prominence": params.get("prominence"),
+        "width": params.get("width"),
+    }
+    initial_peaks_idx = find_all_peaks_naive(df, **naive_params)
     console.print(f"Found {len(initial_peaks_idx)} initial candidate peaks.")
 
     console.print("\n[bold]--- Fitting Global Background ---[/bold]")
@@ -163,35 +173,62 @@ def generate_summary_tables(
 
 def cli(
     input_file: Annotated[
-        Path, typer.Option("--input", help="Input data file (CSV format).")
+        Path,
+        typer.Option(
+            "--input",
+            help="Input data file (CSV format).",
+            envvar="INPUT_FILE",
+        ),
     ] = Path("data/dummy.csv"),
     data_dir: Annotated[
         Path | None,
-        typer.Option("--data-dir", help="Base directory to resolve --input if it's relative."),
+        typer.Option(
+            "--data-dir",
+            help="Base directory to resolve --input if it's relative.",
+            envvar="DATA_DIR",
+        ),
     ] = None,
-    output_dir: Annotated[Path, typer.Option("--output", help="Directory to save plots.")] = Path(
-        "artifacts"
-    ),
+    output_dir: Annotated[
+        Path,
+        typer.Option("--output", help="Directory to save plots.", envvar="OUTPUT_DIR"),
+    ] = Path("artifacts"),
     wavelength: Annotated[
-        float, typer.Option("--wavelength", help="X-ray wavelength in Angstroms.")
-    ] = 1.5406,  # Cu K-alpha,
+        float,
+        typer.Option("--wavelength", help="X-ray wavelength in Angstroms.", envvar="WAVELENGTH"),
+    ] = 1.5406,
     threshold: Annotated[
         float,
-        typer.Option("--threshold", help="Relative height threshold (0-1) for peak detection."),
+        typer.Option(
+            "--threshold",
+            help="Relative height threshold (0-1) for peak detection.",
+            envvar="THRESHOLD",
+        ),
     ] = 0.05,
     distance: Annotated[
-        int, typer.Option("--distance", help="Minimum number of points between peaks.")
+        int,
+        typer.Option(
+            "--distance", help="Minimum number of points between peaks.", envvar="DISTANCE"
+        ),
     ] = 5,
     window: Annotated[
         int,
-        typer.Option("--window", help="Half-window size in points used for local Voigt fitting."),
+        typer.Option(
+            "--window",
+            help="Half-window size in points used for local Voigt fitting.",
+            envvar="WINDOW",
+        ),
     ] = 20,
     prominence: Annotated[
         float | None,
-        typer.Option("--prominence", help="Relative prominence (0-1) for peak detection."),
+        typer.Option(
+            "--prominence",
+            help="Relative prominence (0-1) for peak detection.",
+            envvar="PROMINENCE",
+        ),
     ] = 0.05,
     width: Annotated[
-        int | None, typer.Option("--width", help="Minimum peak width in points for detection.")
+        int | None,
+        typer.Option("--width", help="Minimum peak width in points for detection.", envvar="WIDTH"),
     ] = None,
 ) -> int:
     """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
@@ -245,7 +282,7 @@ def cli(
             summary_df,
             report_path,
         )
-        console.print(f"Saved interactive report to [cyan]{report_path}[/cyan]")
+        console.print(f"Saved interactive report to [cyan]{report_path.as_uri()}[/cyan]")
     except Exception as e:
         console.print(f"[bold red]Failed to generate interactive report: {e}[/bold red]")
 
