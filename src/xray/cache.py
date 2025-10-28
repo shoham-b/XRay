@@ -7,7 +7,7 @@ import pandas as pd
 from diskcache import Cache
 
 # Define the cache directory in the project root
-CACHE_DIR = Path(__file__).parent.parent.parent / ".xray_cache"
+CACHE_DIR = Path(__file__).parent.parent.parent / "artifacts" / ".xray_cache"
 
 # Initialize the cache
 cache = Cache(CACHE_DIR)

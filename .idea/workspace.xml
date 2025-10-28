@@ -5,11 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8b167082-ac2b-4447-96ad-0d9c3baa9cf1" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.github/workflows/static.yml" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/artifacts/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/artifacts/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/uv.lock" beforeDir="false" afterPath="$PROJECT_DIR$/uv.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/xray/mathutils.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/xray/mathutils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -145,6 +142,7 @@
       <workItem from="1761596337153" duration="9442000" />
       <workItem from="1761634711369" duration="1683000" />
       <workItem from="1761639883978" duration="224000" />
+      <workItem from="1761640433671" duration="1040000" />
     </task>
     <servers />
   </component>

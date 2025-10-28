@@ -20,7 +20,7 @@ def test_find_most_probable_d_empty_list():
 
 
 def test_find_most_probable_d_single_value():
-    assert find_most_probable_d([np.float64(2.823647294589178)]) is None
+    assert find_most_probable_d([1.0]) is None
 
 
 def test_find_most_probable_d_simple_case():
@@ -31,10 +31,10 @@ def test_find_most_probable_d_simple_case():
     assert num_peaks == len(d_spacings)
 
 
-def test_find_most_probable_d_kde_fallback():
-    # With identical values, KDE can fail. Test the fallback to mean.
-    d_spacings = [2.0, 2.0, 2.0, 2.0]
+def test_find_most_probable_d_curve_fit_fallback():
+    # With only two values, curve_fit will fail. Test the fallback to mean.
+    d_spacings = [1.0, 2.0]
     most_probable_d, std_d, num_peaks = find_most_probable_d(d_spacings)
-    assert most_probable_d == pytest.approx(2.0)
-    assert std_d == pytest.approx(0.0)
-    assert num_peaks == 4
+    assert most_probable_d == pytest.approx(1.5)
+    assert std_d == pytest.approx(0.5)
+    assert num_peaks == 2
