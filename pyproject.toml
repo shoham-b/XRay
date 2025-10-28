@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv>=1.0",
     "hypothesis>=6.142.2",
     "ruff>=0.6.9",
+    "scipy-stubs==1.16.2.4",
 ]
 
 [project.optional-dependencies]
