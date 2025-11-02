@@ -5,16 +5,41 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8b167082-ac2b-4447-96ad-0d9c3baa9cf1" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.envV1" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/xray/bragg/cli.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/xray/bragg/hkl.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/xray/bragg/image_processing.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/xray/bragg/main.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/xray/lau/__init__.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/xray/lau/cli.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/xray/lau/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/.env.example" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/artifacts/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/artifacts/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/coverage.xml" beforeDir="false" afterPath="$PROJECT_DIR$/coverage.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/xray/__main__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/xray/__main__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/xray/analysis/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/xray/bragg/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/xray/analysis/peak_finding.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/xray/lau/peak_finding.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/xray/mathutils.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/xray/mathutils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tests/test_mathutils.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_mathutils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/uv.lock" beforeDir="false" afterPath="$PROJECT_DIR$/uv.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="UPDATE_TYPE" value="REBASE" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -46,6 +71,9 @@
     &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
     &quot;Python tests.pytest in tests.executor&quot;: &quot;Run&quot;,
     &quot;Python.__main__.executor&quot;: &quot;Run&quot;,
+    &quot;Python.bragg.executor&quot;: &quot;Run&quot;,
+    &quot;Python.lau.executor&quot;: &quot;Run&quot;,
+    &quot;Python.xray.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
@@ -54,24 +82,30 @@
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;ignore.virus.scanning.warn.message&quot;: &quot;true&quot;,
     &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/shoha/git/XRay/data&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/shoha/git/XRay&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
     &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
     &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.android.studio.ml.templates&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;vcs.Git&quot;,
     &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\shoha\git\XRay" />
       <recent name="C:\Users\shoha\git\XRay\data" />
     </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\shoha\git\XRay" />
+      <recent name="C:\Users\shoha\git\XRay\src\xray" />
+      <recent name="C:\Users\shoha\git\XRay\src\xray\lau" />
+    </key>
   </component>
-  <component name="RunManager" selected="Python.__main__">
-    <configuration name="__main__" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Python.bragg">
+    <configuration name="bragg" type="PythonConfigurationType" factoryName="Python">
       <module name="XRay" />
       <option name="ENV_FILES" value="" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -85,8 +119,31 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/xray/__main__.py" />
-      <option name="PARAMETERS" value="--data-dir &quot;H:/My Drive/Lab C/X Ray/Day1&quot; --input NaCl1.csv --output &quot;C:\Users\shoha\git\XRay\artifacts&quot;" />
+      <option name="SCRIPT_NAME" value="xray" />
+      <option name="PARAMETERS" value="bragg" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="true" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="lau" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="XRay" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/xray" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/xray/" />
+      <option name="PARAMETERS" value="lau" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
       <option name="MODULE_MODE" value="false" />
@@ -114,12 +171,13 @@
       <method v="2" />
     </configuration>
     <list>
-      <item itemvalue="Python.__main__" />
+      <item itemvalue="Python.bragg" />
+      <item itemvalue="Python.lau" />
       <item itemvalue="Python tests.pytest in tests" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.__main__" />
+        <item itemvalue="Python.lau" />
       </list>
     </recent_temporary>
   </component>
@@ -143,6 +201,11 @@
       <workItem from="1761634711369" duration="1683000" />
       <workItem from="1761639883978" duration="224000" />
       <workItem from="1761640433671" duration="1040000" />
+      <workItem from="1761644023395" duration="5442000" />
+      <workItem from="1761759582532" duration="915000" />
+      <workItem from="1761760581044" duration="1226000" />
+      <workItem from="1761902257925" duration="10571000" />
+      <workItem from="1762043034397" duration="300000" />
     </task>
     <servers />
   </component>
@@ -177,7 +240,9 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/XRay$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1761638453686" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/xray" />
-    <SUITE FILE_PATH="coverage/XRay$pytest_in_tests.coverage" NAME="pytest in tests Coverage Results" MODIFIED="1761607627644" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/XRay$bragg.coverage" NAME="bragg Coverage Results" MODIFIED="1762042657989" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/xray" />
+    <SUITE FILE_PATH="coverage/XRay$__main__.coverage" NAME="__main__ Coverage Results" MODIFIED="1761645539774" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/xray" />
+    <SUITE FILE_PATH="coverage/XRay$xray.coverage" NAME="lau Coverage Results" MODIFIED="1762036631261" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/src/xray" />
+    <SUITE FILE_PATH="coverage/XRay$pytest_in_tests.coverage" NAME="pytest in tests Coverage Results" MODIFIED="1761758666769" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>

@@ -36,8 +36,8 @@ def find_most_probable_d(
     # If there's a very clear mode (at least half the peaks are the same), just use that.
     # This is robust for very clean data with few peaks.
     mode_res = mode(d_array)
-    if mode_res.count and mode_res.count[0] >= num_peaks / 2 and num_peaks > 2:
-        return float(mode_res.mode[0]), std_d, num_peaks
+    if mode_res.count and mode_res.count >= num_peaks / 2 and num_peaks > 2:
+        return float(mode_res.mode), std_d, num_peaks
 
     try:
         # Create a histogram of the d-spacing values

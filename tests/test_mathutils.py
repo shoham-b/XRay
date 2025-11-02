@@ -23,7 +23,8 @@ def test_find_most_probable_d_single_value():
     assert find_most_probable_d([1.0]) is None
 
 
-def test_find_most_probable_d_simple_case():
+def test_find_most_probable_d_mode_shortcut():
+    # Tests the mode shortcut for clean data
     d_spacings = [1.0, 1.0, 2.0, 3.0, 3.0, 3.0]
     most_probable_d, std_d, num_peaks = find_most_probable_d(d_spacings)
     assert most_probable_d == pytest.approx(3.0, abs=1e-1)
@@ -31,10 +32,19 @@ def test_find_most_probable_d_simple_case():
     assert num_peaks == len(d_spacings)
 
 
-def test_find_most_probable_d_curve_fit_fallback():
-    # With only two values, curve_fit will fail. Test the fallback to mean.
-    d_spacings = [1.0, 2.0]
+def test_find_most_probable_d_identical_values():
+    # Tests the mode shortcut with identical values
+    d_spacings = [2.0, 2.0, 2.0, 2.0]
     most_probable_d, std_d, num_peaks = find_most_probable_d(d_spacings)
-    assert most_probable_d == pytest.approx(1.5)
-    assert std_d == pytest.approx(0.5)
-    assert num_peaks == 2
+    assert most_probable_d == pytest.approx(2.0)
+    assert std_d == pytest.approx(0.0)
+    assert num_peaks == 4
+
+
+def test_find_most_probable_d_with_curve_fit():
+    # Tests a successful curve_fit case
+    d_spacings = [1.4, 1.4, 1.5, 1.6, 1.6]
+    most_probable_d, std_d, num_peaks = find_most_probable_d(d_spacings)
+    assert most_probable_d == pytest.approx(1.5, abs=0.2)
+    assert std_d == pytest.approx(np.std(d_spacings))
+    assert num_peaks == len(d_spacings)

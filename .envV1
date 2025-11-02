@@ -1,0 +1,27 @@
+
+# X-Ray Analysis Environment Variables
+
+# --- Lau Diffraction Analysis ---
+LAU_DATA_DIR="H:/My Drive/Lab C/X Ray/Day 1"
+LAU_INPUT="NaCl1.csv"
+LAU_OUTPUT="C:/Users/shoha/git/XRay/artifacts/lau"
+# LAU_WAVELENGTH=1.5406
+# LAU_THRESHOLD=0.05
+# LAU_DISTANCE=5
+# LAU_WINDOW=20
+# LAU_PROMINENCE=0.05
+# LAU_WIDTH=
+
+# --- Bragg Diffraction Analysis ---
+BRAGG_IMAGE_FILE="H:/My Drive/Lab C/X Ray/Day 3/IMG.jpg"
+BRAGG_OUTPUT_DIR="C:/Users/shoha/git/XRay/artifacts/bragg"
+BRAGG_BIG_CIRCLE_THRESH=35
+BRAGG_SMALL_DOT_THRESH=73
+BRAGG_SMALL_DOT_THRESH_OUTER=130
+#BRAGG_MIN_SPOT_AREA=10
+BRAGG_MIN_CIRCULARITY=0.3
+BRAGG_MAX_DISTANCE_PERCENTAGE=90
+# BRAGG_PHYS_Y_MM=75.0
+# BRAGG_PHYS_X_MM=55.0
+# BRAGG_L_MM=15.0
+# BRAGG_A_0_PM=564.02
