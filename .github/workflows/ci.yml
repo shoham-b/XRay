@@ -228,6 +228,8 @@ jobs:
     needs: build-graphs
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment:
+      name: github-pages
     steps:
       - name: Download graphs artifact
         uses: actions/download-artifact@v4
