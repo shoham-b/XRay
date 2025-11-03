@@ -20,6 +20,7 @@ LAU_THRESHOLD=${LAU_THRESHOLD:-0.05}
 LAU_DISTANCE=${LAU_DISTANCE:-5}
 LAU_PROMINENCE=${LAU_PROMINENCE:-0.05}
 LAU_WINDOW=${LAU_WINDOW:-20}
+UI_ARTIFACTS_DIR=${UI_ARTIFACTS_DIR:-src/xray/artifacts}
 
 GRAPHS_DIR="$OUT_DIR/graphs"
 BRAGG_DIR="$GRAPHS_DIR/bragg"
@@ -184,3 +185,11 @@ awk '{
     while ((getline line < ARGV[1]) > 0) print line; next
   } print
 }' "$tmp_gallery" "$TEMPLATE" > "$GRAPHS_DIR/index.html"
+
+# Sync gallery to UI-facing artifacts directory
+if [ -n "$UI_ARTIFACTS_DIR" ]; then
+  rm -rf "$UI_ARTIFACTS_DIR"
+  mkdir -p "$UI_ARTIFACTS_DIR"
+  cp -R "$GRAPHS_DIR"/. "$UI_ARTIFACTS_DIR"/
+  echo "Copied gallery to UI artifacts directory at $UI_ARTIFACTS_DIR"
+fi
