@@ -47,6 +47,23 @@ def find_big_circle(blurred_v, big_circle_thresh):
     return c_big_circle, big_circle_center, thresh
 
 
+def _apply_postprocessing(binary_image, action):
+    if action is None:
+        return binary_image
+
+    if action == "dilate3":
+        kernel = np.ones((3, 3), np.uint8)
+        return cv2.dilate(binary_image, kernel, iterations=1)
+    if action == "close5":
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        return cv2.morphologyEx(binary_image, cv2.MORPH_CLOSE, kernel)
+    if action == "open3":
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        return cv2.morphologyEx(binary_image, cv2.MORPH_OPEN, kernel)
+
+    return binary_image
+
+
 def _apply_thresholding(
     masked_blurred_v,
     small_dot_thresh,
@@ -55,8 +72,15 @@ def _apply_thresholding(
     px_height,
     px_width,
     small_dot_thresh_outer,
+    *,
+    block_size=11,
 ):
-    """Applies dynamic or fixed thresholding based on parameters."""
+    """Applies dynamic or fixed adaptive thresholding based on parameters."""
+    if block_size % 2 == 0:
+        block_size += 1
+    if block_size < 3:
+        block_size = 3
+
     if (
         big_circle_center is not None
         and c_big_circle is not None
@@ -65,12 +89,13 @@ def _apply_thresholding(
         and px_width is not None
     ):
         (_, radius) = cv2.minEnclosingCircle(c_big_circle)
-        boundary_radius = 2.3 * radius
+        boundary_radius = 2.2 * radius
         print(
-            "Using two-step threshold: "
-            f"inner_thresh={small_dot_thresh}, "
-            f"outer_thresh={small_dot_thresh_outer}, "
-            f"boundary_radius={boundary_radius:.2f}px"
+            "Using two-step adaptive threshold: "
+            f"inner_C={small_dot_thresh}, "
+            f"outer_C={small_dot_thresh_outer}, "
+            f"boundary_radius={boundary_radius:.2f}px, "
+            f"blockSize={block_size}"
         )
 
         y, x = np.ogrid[:px_height, :px_width]
@@ -78,14 +103,166 @@ def _apply_thresholding(
             (x - big_circle_center[0]) ** 2 + (y - big_circle_center[1]) ** 2
         )
 
-        dynamic_threshold_mask = np.full(masked_blurred_v.shape, small_dot_thresh, dtype=np.float32)
-        dynamic_threshold_mask[dist_from_center > boundary_radius] = small_dot_thresh_outer
+        # Create a mask for the outer region
+        outer_mask = dist_from_center > boundary_radius
 
-        thresh = (masked_blurred_v < dynamic_threshold_mask).astype(np.uint8) * 255
+        # Inner threshold
+        thresh_inner = cv2.adaptiveThreshold(
+            masked_blurred_v,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            block_size,
+            small_dot_thresh,
+        )
+
+        # Outer threshold
+        thresh_outer = cv2.adaptiveThreshold(
+            masked_blurred_v,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            block_size,
+            small_dot_thresh_outer,
+        )
+
+        # Combine
+        thresh = thresh_inner
+        thresh[outer_mask] = thresh_outer[outer_mask]
+
     else:
-        print("Using fixed threshold.")
-        _, thresh = cv2.threshold(masked_blurred_v, small_dot_thresh, 255, cv2.THRESH_BINARY_INV)
+        print(
+            f"Using fixed adaptive threshold with C={small_dot_thresh} and blockSize={block_size}"
+        )
+        thresh = cv2.adaptiveThreshold(
+            masked_blurred_v,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY_INV,
+            block_size,
+            small_dot_thresh,
+        )
+
     return thresh
+
+
+def _build_threshold_attempts(small_dot_thresh, small_dot_thresh_outer):
+    threshold_attempts = [
+        {
+            "method": "adaptive",
+            "inner": small_dot_thresh,
+            "outer": small_dot_thresh_outer,
+            "block_size": 11,
+            "label": "base adaptive parameters",
+            "postprocess": None,
+        }
+    ]
+
+    for delta, block_size in [(-15, 11), (-25, 13), (15, 11), (-10, 9), (5, 15)]:
+        if delta == 0:
+            continue
+        threshold_attempts.append(
+            {
+                "method": "adaptive",
+                "inner": small_dot_thresh + delta,
+                "outer": (
+                    small_dot_thresh_outer + delta if small_dot_thresh_outer is not None else None
+                ),
+                "block_size": block_size,
+                "label": f"adaptive delta={delta} blockSize={block_size}",
+                "postprocess": None,
+            }
+        )
+
+    threshold_attempts.extend(
+        [
+            {
+                "method": "adaptive",
+                "inner": small_dot_thresh,
+                "outer": small_dot_thresh_outer,
+                "block_size": 11,
+                "label": "adaptive + dilate3",
+                "postprocess": "dilate3",
+            },
+            {
+                "method": "adaptive",
+                "inner": small_dot_thresh - 10,
+                "outer": (
+                    (small_dot_thresh_outer - 10) if small_dot_thresh_outer is not None else None
+                ),
+                "block_size": 9,
+                "label": "adaptive delta=-10 blockSize=9 + close5",
+                "postprocess": "close5",
+            },
+            {
+                "method": "otsu",
+                "label": "global Otsu fallback",
+                "postprocess": None,
+            },
+            {
+                "method": "otsu",
+                "label": "global Otsu + dilate3",
+                "postprocess": "dilate3",
+            },
+        ]
+    )
+
+    return threshold_attempts
+
+
+def _select_threshold_strategy(
+    threshold_attempts,
+    masked_blurred_v,
+    big_circle_center,
+    c_big_circle,
+    px_height,
+    px_width,
+):
+    required_contours = 1 if c_big_circle is None else 2
+
+    for attempt_number, attempt in enumerate(threshold_attempts, start=1):
+        label = attempt["label"]
+        print(f"Attempt {attempt_number}: {label}")
+
+        if attempt["method"] == "adaptive":
+            thresh_candidate = _apply_thresholding(
+                masked_blurred_v,
+                attempt["inner"],
+                big_circle_center,
+                c_big_circle,
+                px_height,
+                px_width,
+                attempt["outer"],
+                block_size=attempt["block_size"],
+            )
+        else:
+            print("Using global Otsu thresholding (adaptive fallback).")
+            _, thresh_candidate = cv2.threshold(
+                masked_blurred_v,
+                0,
+                255,
+                cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
+            )
+
+        thresh_candidate = _apply_postprocessing(thresh_candidate, attempt.get("postprocess"))
+
+        contours_candidate, _ = cv2.findContours(
+            thresh_candidate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+
+        if len(contours_candidate) >= required_contours:
+            contours = sorted(contours_candidate, key=cv2.contourArea, reverse=True)
+            print(
+                f"Selected threshold strategy: {label} (found {len(contours_candidate)} contours)"
+            )
+            return contours, thresh_candidate
+
+        print(
+            f"Attempt {attempt_number} produced {len(contours_candidate)} contour(s); "
+            "trying next strategy."
+        )
+
+    return None, None
 
 
 def find_small_dots(
@@ -107,25 +284,21 @@ def find_small_dots(
     if c_big_circle is not None:
         cv2.drawContours(masked_blurred_v, [c_big_circle], -1, 0, -1)
 
-    thresh = _apply_thresholding(
+    threshold_attempts = _build_threshold_attempts(small_dot_thresh, small_dot_thresh_outer)
+    contours, thresh = _select_threshold_strategy(
+        threshold_attempts,
         masked_blurred_v,
-        small_dot_thresh,
         big_circle_center,
         c_big_circle,
         px_height,
         px_width,
-        small_dot_thresh_outer,
     )
 
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    if not contours:
-        print("Error: No contours found in Pass 2.")
+    if contours is None:
+        print("Error: No contours found in Pass 2 after fallback strategies.")
         return [], None, None
 
-    contours = sorted(contours, key=cv2.contourArea, reverse=True)
-
-    other_contours = contours[1:]
+    other_contours = contours[1:] if c_big_circle is not None and len(contours) > 1 else contours
 
     detected_dots = []
     rejected_dots_circularity = []
@@ -245,8 +418,7 @@ def visualize_and_save_results(
     cv2.imwrite(str(output_path_circles_on_original), output_image)
 
     print(
-        "Successfully saved combined visualization to "
-        f"'{output_path_combined.absolute().as_uri()}'"
+        f"Successfully saved combined visualization to '{output_path_combined.absolute().as_uri()}'"
     )
     print(
         "Successfully saved circles on original visualization to "
@@ -283,15 +455,15 @@ def save_dots_to_csv(detected_dots, output_dir):
                     i + 1,
                     center_x,
                     center_y,
-                    f"{dot["x_mm"]:.3f}",
-                    f"{dot["y_mm"]:.3f}",
-                    f"{dot["z_mm"]:.1f}",
+                    f"{dot['x_mm']:.3f}",
+                    f"{dot['y_mm']:.3f}",
+                    f"{dot['z_mm']:.1f}",
                     h,
                     k,
                     ell,
-                    f"{dot["d_pm"]:.2f}",
-                    f"{dot["theta_deg"]:.3f}",
-                    f"{dot["lambda_pm"]:.2f}",
+                    f"{dot['d_pm']:.2f}",
+                    f"{dot['theta_deg']:.3f}",
+                    f"{dot['lambda_pm']:.2f}",
                 ]
             )
     print(f"Successfully saved detected dots to '{csv_path.absolute().as_uri()}'")

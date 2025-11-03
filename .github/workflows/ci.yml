@@ -195,10 +195,26 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --group dev
+      - name: Restore previous pages artifact
+        id: download-pages
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: artifacts
+        continue-on-error: true
+      - name: Prepare artifact workspace
+        run: |
+          mkdir -p artifacts
+          if [ -d "artifacts" ]; then
+            echo "Artifacts directory ready"
+          fi
       - name: Build graphs
         shell: bash
         run: |
-          bash scripts/ci/build_graphs.sh
+          bash scripts/ci/build_graphs.sh artifacts both scripts/pages_index.html
+      - name: List generated graphs
+        run: |
+          find artifacts -maxdepth 2 -type f | sort
       - name: Upload graphs artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -206,3 +222,22 @@ jobs:
           name: graphs
           path: artifacts/graphs
           if-no-files-found: warn
+
+  deploy-pages:
+    name: Deploy GitHub Pages
+    needs: build-graphs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Download graphs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: graphs
+          path: ./site
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

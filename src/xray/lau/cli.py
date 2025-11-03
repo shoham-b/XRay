@@ -142,3 +142,7 @@ def lau_analysis(
         console.print(f"[bold red]Failed to generate interactive report: {e}[/bold red]")
 
     return 0
+
+
+def main() -> None:
+    lau_cli()

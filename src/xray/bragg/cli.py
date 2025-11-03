@@ -99,3 +99,7 @@ def bragg_analysis(
         max_distance_percentage=max_distance_percentage,
     )
     return 0
+
+
+def main() -> None:
+    bragg_cli()

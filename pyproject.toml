@@ -33,6 +33,7 @@ dev = [
 
 [project.scripts]
 xray = "xray.__main__:main"
+bragg = "xray.bragg.cli:main"
 
 [tool.ruff]
 line-length = 100
