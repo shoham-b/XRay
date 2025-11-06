@@ -101,8 +101,14 @@ venv.bak/
 # VS Code
 .vscode/
 
+# JetBrains
+.idea/
+
 # Cache files
 .xray_cache/
+
+# Output files
+artifacts/
 
 # Environment variables
 .env

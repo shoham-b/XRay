@@ -11,8 +11,8 @@ load_dotenv()
 
 app = typer.Typer()
 
-app.add_typer(bragg_cli, name="bragg")
 app.add_typer(lau_cli, name="lau")
+app.add_typer(bragg_cli, name="bragg")
 
 
 def main() -> None:

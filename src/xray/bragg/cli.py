@@ -5,99 +5,129 @@ from typing import Annotated
 
 import typer
 from rich.console import Console
+from scipy.signal import find_peaks
 
-from xray.bragg.main import run_bragg_analysis
+from xray.bragg.main import (
+    generate_summary_tables,
+    load_and_prep_data,
+    perform_peak_analysis,
+)
+from xray.bragg.peak_finding import bremsstrahlung_bg, double_voigt
+from xray.path_manager import PathManager
+from xray.viz import create_interactive_report
 
 bragg_cli = typer.Typer(
-    invoke_without_command=True, help="Analyzes Bragg diffraction patterns from an image."
+    invoke_without_command=True,
+    help="Analyzes X-ray diffraction data to find peaks and calculate d-spacing.",
 )
 
 
 @bragg_cli.callback()
 def bragg_analysis(
-    image_path: Annotated[
+    input_file: Annotated[
         Path,
         typer.Option(
-            "--image",
-            help="Input image file.",
-            envvar="BRAGG_IMAGE_FILE",
+            "--input",
+            help="Input data file (CSV format) relative to the data directory.",
+            envvar="BRAGG_INPUT_FILE",
         ),
-    ] = Path("IMG.jpg"),
-    output_dir: Annotated[
-        Path,
-        typer.Option("--output", help="Directory to save plots.", envvar="BRAGG_OUTPUT_DIR"),
-    ] = Path("artifacts"),
-    big_circle_thresh: Annotated[
-        int,
-        typer.Option(
-            help="Threshold for finding the big circle.", envvar="BRAGG_BIG_CIRCLE_THRESH"
-        ),
-    ] = 10,
-    small_dot_thresh: Annotated[
-        int,
-        typer.Option(
-            help="Threshold for finding the small dots within 2 radii of the big circle center.",
-            envvar="BRAGG_SMALL_DOT_THRESH",
-        ),
-    ] = 50,
-    min_spot_area: Annotated[
-        int,
-        typer.Option(
-            help="Minimum area for a spot to be considered.", envvar="BRAGG_MIN_SPOT_AREA"
-        ),
-    ] = 10,
-    min_circularity: Annotated[
+    ] = Path("bragg/NaCl1.csv"),
+    wavelength: Annotated[
         float,
         typer.Option(
-            help="Minimum circularity for a spot to be considered.", envvar="BRAGG_MIN_CIRCULARITY"
+            "--wavelength", help="X-ray wavelength in Angstroms.", envvar="BRAGG_WAVELENGTH"
         ),
-    ] = 0.2,
-    phys_y_mm: Annotated[
-        float, typer.Option(help="Physical height of the detector in mm.", envvar="BRAGG_PHYS_Y_MM")
-    ] = 75.0,
-    phys_x_mm: Annotated[
-        float, typer.Option(help="Physical width of the detector in mm.", envvar="BRAGG_PHYS_X_MM")
-    ] = 55.0,
-    l_mm: Annotated[
-        float, typer.Option(help="Sample-to-film distance in mm.", envvar="BRAGG_L_MM")
-    ] = 15.0,
-    a_0_pm: Annotated[
-        float, typer.Option(help="Lattice constant in picometers.", envvar="BRAGG_A_0_PM")
-    ] = 564.02,
-    small_dot_thresh_outer: Annotated[
+    ] = 1.5406,
+    threshold: Annotated[
         float,
         typer.Option(
-            help="Threshold for finding the small dots beyond 2 radii of the big circle center.",
-            envvar="BRAGG_SMALL_DOT_THRESH_OUTER",
+            "--threshold",
+            help="Relative height threshold (0-1) for peak detection.",
+            envvar="BRAGG_THRESHOLD",
         ),
-    ] = 30.0,
-    max_distance_percentage: Annotated[
-        float,
+    ] = 0.05,
+    distance: Annotated[
+        int,
         typer.Option(
-            help="Max distance from center for a dot (percentage of min image dimension).",
-            envvar="BRAGG_MAX_DISTANCE_PERCENTAGE",
+            "--distance", help="Minimum number of points between peaks.", envvar="BRAGG_DISTANCE"
         ),
-    ] = 100.0,
+    ] = 5,
+    window: Annotated[
+        int,
+        typer.Option(
+            "--window",
+            help="Half-window size in points used for local Voigt fitting.",
+            envvar="BRAGG_WINDOW",
+        ),
+    ] = 20,
+    prominence: Annotated[
+        float | None,
+        typer.Option(
+            "--prominence",
+            help="Relative prominence (0-1) for peak detection.",
+            envvar="BRAGG_PROMINENCE",
+        ),
+    ] = 0.05,
+    width: Annotated[
+        int | None,
+        typer.Option(
+            "--width", help="Minimum peak width in points for detection.", envvar="BRAGG_WIDTH"
+        ),
+    ] = None,
 ) -> int:
-    """Analyzes Bragg diffraction patterns from an image."""
+    """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
     console = Console()
+    path_manager = PathManager()
+    output_dir = path_manager.get_artifacts_path() / "bragg"
     output_dir.mkdir(parents=True, exist_ok=True)
-    console.print(f"Starting Bragg analysis for [cyan]{image_path}[/cyan]")
 
-    run_bragg_analysis(
-        image_path=str(image_path),
-        output_dir=output_dir,
-        big_circle_thresh=big_circle_thresh,
-        small_dot_thresh=small_dot_thresh,
-        min_spot_area=min_spot_area,
-        min_circularity=min_circularity,
-        phys_y_mm=phys_y_mm,
-        phys_x_mm=phys_x_mm,
-        l_mm=l_mm,
-        a_0_pm=a_0_pm,
-        small_dot_thresh_outer=small_dot_thresh_outer,
-        max_distance_percentage=max_distance_percentage,
-    )
+    input_path = path_manager.get_data_path() / input_file
+    df = load_and_prep_data(input_path, console)
+    if df is None:
+        return 1
+
+    analysis_params = {
+        "threshold": threshold,
+        "distance": distance,
+        "prominence": prominence,
+        "width": width,
+        "window": window,
+    }
+    analysis_results = perform_peak_analysis(df, analysis_params, console)
+
+    peak_df, summary_df = generate_summary_tables(df, analysis_results, wavelength)
+
+    # --- Console Output ---
+    console.print("\n[bold]--- Peak Analysis Results ---[/bold]")
+    console.print(peak_df.to_string(index=False))
+    console.print("\n[bold]--- Most Probable d-spacing ---[/bold]")
+    console.print(summary_df.to_string(index=False))
+
+    # --- HTML Report ---
+    console.print("\n[bold]--- Generating HTML Report ---[/bold]")
+    report_path = output_dir / "index.html"
+    try:
+        y_total_fit = bremsstrahlung_bg(df["Angle"].values, *analysis_results["bg_params"])
+        for _, fit_params, _ in analysis_results["valid_fits"]:
+            y_total_fit += double_voigt(df["Angle"].values, *fit_params)
+        final_model_peaks_idx, _ = find_peaks(
+            y_total_fit, height=y_total_fit.max() * 0.05, distance=5
+        )
+
+        create_interactive_report(
+            df,
+            analysis_results["initial_peaks_idx"],
+            analysis_results["valid_fits"],
+            analysis_results["bg_params"],
+            final_model_peaks_idx,
+            peak_df,
+            summary_df,
+            report_path,
+        )
+        console.print(f"Saved interactive report to [cyan]{report_path.absolute().as_uri()}[/cyan]")
+    except Exception as e:
+        console.print(f"[bold red]Failed to generate interactive report: {e}[/bold red]")
+
     return 0
 
 

@@ -3,26 +3,32 @@ from pathlib import Path
 
 
 class PathManager:
-    def __init__(self, project_root: Path | None = None, data_path: Path | None = None):
+    def __init__(
+        self,
+        project_root: Path | None = None,
+        data_path: Path | None = None,
+        artifacts_path: Path | None = None,
+    ):
         if project_root is None:
             self.project_root = Path(os.path.abspath(f"{__file__}/../.."))
         else:
             self.project_root = project_root
 
         if data_path is None:
-            # As per your request, data sits in H:\My Drive\Lab C\X Ray\Day1
-            # However, I'll also check for a local `data` directory for better portability
-            local_data = self.project_root / "data"
-            gdrive_data = Path("H:/My Drive/Lab C/X Ray/Day1")
-            if gdrive_data.exists() and gdrive_data.is_dir():
-                self.data_path = gdrive_data
-            else:
-                self.data_path = local_data
+            self.data_path = self.project_root / "data"
         else:
             self.data_path = data_path
 
+        if artifacts_path is None:
+            self.artifacts_path = self.project_root / "artifacts"
+        else:
+            self.artifacts_path = artifacts_path
+
     def get_data_path(self) -> Path:
         return self.data_path
+
+    def get_artifacts_path(self) -> Path:
+        return self.artifacts_path
 
     def get_project_root(self) -> Path:
         return self.project_root
