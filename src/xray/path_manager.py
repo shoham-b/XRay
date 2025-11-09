@@ -10,7 +10,7 @@ class PathManager:
         artifacts_path: Path | None = None,
     ):
         if project_root is None:
-            self.project_root = Path(os.path.abspath(f"{__file__}/../.."))
+            self.project_root = Path(os.path.abspath(f"{__file__}/../../.."))
         else:
             self.project_root = project_root
 

@@ -77,7 +77,7 @@ def lau_analysis(
     path_manager = PathManager()
     output_dir = path_manager.get_artifacts_path() / "lau"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     input_path = path_manager.get_data_path() / image_path
 
     console.print(f"Starting Laue analysis for [cyan]{input_path}[/cyan]")
