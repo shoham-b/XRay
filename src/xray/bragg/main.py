@@ -110,14 +110,16 @@ def generate_summary_tables(
 
     # Check if amplitudes are all NaN, indicating predefined angles were used
     if peaks_data["amplitude"].isnull().all():
-        # If all amplitudes are NaN, we assume the peaks are already ordered as K-alpha, K-beta, K-alpha, K-beta...
-        # Or, if only K-alpha is expected, then all peaks are K-alpha.
-        # For simplicity, we'll assume that if amplitudes are NaN, we treat each entry as a K-alpha peak
-        # and don't attempt K-alpha/K-beta pairing based on amplitude.
-        for i in range(len(peaks_data)):
-            peak = peaks_data.iloc[i]
-            ka_peaks_angles.append(peak["angle"])
-            combined_sin_thetas_for_fit.append(np.sin(np.deg2rad(peak["angle"] / 2)))
+        # If all amplitudes are NaN, we use the original index from valid_fits to determine K-alpha/K-beta
+        for i, (_, _, mean_angle) in enumerate(analysis_results["valid_fits"]):
+            if i % 2 != 0:  # Odd indices are K-alpha
+                ka_peaks_angles.append(mean_angle)
+                combined_sin_thetas_for_fit.append(np.sin(np.deg2rad(mean_angle / 2)))
+            else:  # Even indices are K-beta
+                kb_peaks_angles.append(mean_angle)
+                sin_theta_b = np.sin(np.deg2rad(mean_angle / 2))
+                sin_theta_a_equiv = (lambda_a / lambda_b) * sin_theta_b
+                combined_sin_thetas_for_fit.append(sin_theta_a_equiv)
     else:
         for i in range(0, len(peaks_data), 2):
             if i + 1 < len(peaks_data):
