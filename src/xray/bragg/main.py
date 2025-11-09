@@ -118,8 +118,7 @@ def generate_summary_tables(
             else:  # Even indices are K-beta
                 kb_peaks_angles.append(mean_angle)
                 sin_theta_b = np.sin(np.deg2rad(mean_angle / 2))
-                sin_theta_a_equiv = (lambda_a / lambda_b) * sin_theta_b
-                combined_sin_thetas_for_fit.append(sin_theta_a_equiv)
+                combined_sin_thetas_for_fit.append(sin_theta_b) # Directly append sin(theta_beta)
     else:
         for i in range(0, len(peaks_data), 2):
             if i + 1 < len(peaks_data):
@@ -133,10 +132,8 @@ def generate_summary_tables(
 
                 # For combined fit: add K-alpha sin(theta)
                 combined_sin_thetas_for_fit.append(np.sin(np.deg2rad(ka_peak["angle"] / 2)))
-                # For combined fit: add normalized K-beta sin(theta)
-                sin_theta_b = np.sin(np.deg2rad(kb_peak["angle"] / 2))
-                sin_theta_a_equiv = (lambda_a / lambda_b) * sin_theta_b
-                combined_sin_thetas_for_fit.append(sin_theta_a_equiv)
+                # For combined fit: add K-beta sin(theta) without normalization
+                combined_sin_thetas_for_fit.append(np.sin(np.deg2rad(kb_peak["angle"] / 2)))
             else:
                 # Handle lone peak (assume it's K-alpha)
                 lone_peak = peaks_data.iloc[i]
