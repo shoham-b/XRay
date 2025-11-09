@@ -66,12 +66,6 @@ def bragg_analysis(
             envvar="BRAGG_PROMINENCE",
         ),
     ] = 0.05,
-    width: Annotated[
-        int | None,
-        typer.Option(
-            "--width", help="Minimum peak width in points for detection.", envvar="BRAGG_WIDTH"
-        ),
-    ] = None,
     show_plots: Annotated[
         bool,
         typer.Option(
@@ -82,6 +76,14 @@ def bragg_analysis(
         bool,
         typer.Option("--clear-cache", help="Clear the cache before running."),
     ] = False,
+    real_lattice_constant: Annotated[
+        float,
+        typer.Option(
+            "--real-lattice-constant",
+            help="Real lattice constant in Angstroms for comparison (e.g., 5.64 for NaCl, 4.03 for LiF).",
+            envvar="BRAGG_REAL_LATTICE_CONSTANT",
+        ),
+    ] = 5.64,
 ) -> int:
     """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
     console = Console()
@@ -103,17 +105,18 @@ def bragg_analysis(
         if df is None:
             continue
 
+        material_name = input_file.stem
+
         analysis_params = {
             "threshold": threshold,
             "distance": distance,
             "prominence": prominence,
-            "width": width,
             "window": window,
         }
         analysis_results = perform_peak_analysis(df, analysis_params, console)
 
         peak_df, summary_df, fit_plot_data = generate_summary_tables(
-            df, analysis_results, wavelength
+            df, analysis_results, wavelength, real_lattice_constant
         )
 
         analysis_data = {
@@ -123,6 +126,7 @@ def bragg_analysis(
             "peak_df": peak_df,
             "summary_df": summary_df,
             "fit_plot_data": fit_plot_data,
+            "real_lattice_constant": real_lattice_constant,
         }
         analysis_data_list.append(analysis_data)
 

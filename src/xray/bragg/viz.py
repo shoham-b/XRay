@@ -37,16 +37,15 @@ def _create_single_material_plot(
     summary_table: pd.DataFrame,
     material_name: str,
     fit_plot_data: dict,
+    d_values: dict,
 ) -> go.Figure:
     """Creates an interactive plot for a single material."""
 
-    rows = 4
-    row_heights = [0.5, 0.16, 0.16, 0.18]
+    rows = 2
+    row_heights = [0.7, 0.3]
     subplot_titles = [
         f"X-Ray Diffraction Spectrum - {material_name}",
-        "d-spacing Linear Fit (n vs sinθ) - Kα",
-        "d-spacing Linear Fit (n vs sinθ) - Kβ",
-        "d-spacing Linear Fit (n vs sinθ) - Combined (Kα + Normalized Kβ)",
+        "d-spacing Linear Fits (n vs sinθ)",
     ]
 
     fig = make_subplots(
@@ -147,7 +146,7 @@ def _create_single_material_plot(
                         x=x_data,
                         y=y_peak,
                         mode="lines",
-                        name=f"Voigt Peak {i+1}",
+                        name=f"Voigt Peak {i + 1}",
                         line=dict(width=1.5, dash="dot"),
                         showlegend=True,
                         visible="legendonly",
@@ -219,7 +218,7 @@ def _create_single_material_plot(
                 name="Kβ Data",
                 marker=dict(color="green"),
             ),
-            row=3,
+            row=2,
             col=1,
         )
         kb_fit_line_y = kb_slope * kb_x_values
@@ -231,16 +230,16 @@ def _create_single_material_plot(
                 name=f"Kβ Fit (slope={kb_slope:.4f})",
                 line=dict(color="green", dash="dash"),
             ),
-            row=3,
+            row=2,
             col=1,
         )
         fig.update_xaxes(
             title_text="sin(θ)",
             range=[kb_x_values.min() - 0.01, kb_x_values.max() + 0.01],
-            row=3,
+            row=2,
             col=1,
         )
-        fig.update_yaxes(title_text="Peak Order (n)", row=3, col=1)
+        fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
 
         # Combined fit
         combined_x_values = fit_plot_data["combined_x_values"]
@@ -255,7 +254,7 @@ def _create_single_material_plot(
                 name="Combined Data",
                 marker=dict(color="purple"),
             ),
-            row=4,
+            row=2,
             col=1,
         )
         combined_fit_line_y = combined_slope * combined_x_values
@@ -267,17 +266,17 @@ def _create_single_material_plot(
                 name=f"Combined Fit (slope={combined_slope:.4f})",
                 line=dict(color="purple", dash="dash"),
             ),
-            row=4,
+            row=2,
             col=1,
         )
         all_x_values_combined = np.concatenate((ka_x_values, kb_x_values))
         fig.update_xaxes(
             title_text="sin(θ)",
             range=[all_x_values_combined.min() - 0.01, all_x_values_combined.max() + 0.01],
-            row=4,
+            row=2,
             col=1,
         )
-        fig.update_yaxes(title_text="Peak Order (n)", row=4, col=1)
+        fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
 
     fig.update_layout(
         height=1000,
@@ -310,9 +309,14 @@ def create_multi_material_report(
         peak_table = analysis_data["peak_df"]
         summary_table = analysis_data["summary_df"]
         fit_plot_data = analysis_data["fit_plot_data"]
+        d_values = {
+            "ka": summary_table.loc[0, "inferred_ka_d_spacing"],
+            "kb": summary_table.loc[0, "inferred_kb_d_spacing"],
+            "combined": summary_table.loc[0, "inferred_combined_d_spacing"],
+        }
 
         fig = _create_single_material_plot(
-            df, analysis_results, peak_table, summary_table, material_name, fit_plot_data
+            df, analysis_results, peak_table, summary_table, material_name, fit_plot_data, d_values
         )
 
         plot_html = fig.to_html(full_html=False, include_plotlyjs=include_plotlyjs)
@@ -326,6 +330,38 @@ def create_multi_material_report(
             classes="table table-striped table-hover", justify="center"
         )
 
+        bragg_summary_html = f"""
+            <div class="mt-4">
+                <h4>Calculated d-spacing values (in Angstroms)</h4>
+                <ul>
+                    <li>Kα Fit: <b>{d_values['ka']:.4f} Å</b></li>
+                    <li>Kβ Fit: <b>{d_values['kb']:.4f} Å</b></li>
+                    <li>Combined Fit: <b>{d_values['combined']:.4f} Å</b></li>
+                </ul>
+            </div>
+            <div class="mt-4">
+                <h4>Inferred Lattice Constants 'a' and Error Percentage (compared to {analysis_data['real_lattice_constant']:.2f} Å)</h4>
+                <h5>Kα Fit:</h5>
+                <ul>
+                    <li>SC: <b>{summary_table.loc[0, 'a_SC_ka']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_SC_ka']:.2f}%)</li>
+                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_ka']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_BCC_ka']:.2f}%)</li>
+                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_ka']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_FCC_ka']:.2f}%)</li>
+                </ul>
+                <h5>Kβ Fit:</h5>
+                <ul>
+                    <li>SC: <b>{summary_table.loc[0, 'a_SC_kb']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_SC_kb']:.2f}%)</li>
+                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_kb']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_BCC_kb']:.2f}%)</li>
+                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_kb']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_FCC_kb']:.2f}%)</li>
+                </ul>
+                <h5>Combined Fit:</h5>
+                <ul>
+                    <li>SC: <b>{summary_table.loc[0, 'a_SC_combined']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_SC_combined']:.2f}%)</li>
+                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_combined']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_BCC_combined']:.2f}%)</li>
+                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_combined']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_FCC_combined']:.2f}%)</li>
+                </ul>
+            </div>
+        """
+
         active_class = "active show" if i == 0 else ""
         fade_class = "" if i == 0 else "fade"
         tab_headers.append(
@@ -334,6 +370,15 @@ def create_multi_material_report(
         tab_contents.append(f"""
             <div class="tab-pane container-fluid {fade_class} {active_class}" id="{material_name}">
                 <div id="plot_{material_name}">{plot_html}</div>
+                {bragg_summary_html}
+                <div class="table-container">
+                    <h4>Peak Table</h4>
+                    {peak_table_html}
+                </div>
+                <div class="table-container">
+                    <h4>Summary Table</h4>
+                    {summary_table_html}
+                </div>
             </div>
         """)
 

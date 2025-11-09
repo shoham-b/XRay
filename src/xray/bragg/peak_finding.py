@@ -11,8 +11,8 @@ def find_all_peaks_naive(
     df: pd.DataFrame,
     threshold: float = 0.0,
     distance: int = 5,
-    prominence: float = 0.1,
-    width: int | None = 1,
+    prominence: float = 0.05,
+    width: int = 1,
 ) -> tuple[np.ndarray, dict]:
     """Finds all local maxima (spikes) in the data that meet specified criteria.
 

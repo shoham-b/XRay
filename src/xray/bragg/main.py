@@ -38,7 +38,6 @@ def perform_peak_analysis(df: pd.DataFrame, params: dict, console: Console) -> d
         threshold=params["threshold"],
         distance=params["distance"],
         prominence=params["prominence"],
-        width=params["width"],
     )
 
     bg_params = fit_global_background(df, initial_peaks, window=params["window"])
@@ -62,7 +61,7 @@ def perform_peak_analysis(df: pd.DataFrame, params: dict, console: Console) -> d
 
 
 def generate_summary_tables(
-    df: pd.DataFrame, analysis_results: dict, wavelength: float
+    df: pd.DataFrame, analysis_results: dict, wavelength: float, real_lattice_constant: float
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Generates summary tables from the analysis results.
@@ -70,7 +69,8 @@ def generate_summary_tables(
     2. Performs separate linear fits for K-alpha and K-beta peaks to find d-spacing.
     3. Performs a combined linear fit (K-alpha and normalized K-beta) to find d-spacing.
     4. Calculates potential lattice constants 'a' for cubic systems based on the fitted d values.
-    5. Returns dataframes and a dictionary with fit data for plotting.
+    5. Calculates error percentages for each inferred lattice constant compared to a real value.
+    6. Returns dataframes and a dictionary with fit data for plotting.
     """
 
     if not analysis_results["valid_fits"]:
@@ -167,6 +167,24 @@ def generate_summary_tables(
     a_bcc_combined = d_fit_combined * np.sqrt(2)
     a_fcc_combined = d_fit_combined * np.sqrt(3)
 
+    # Calculate error percentages
+    def calculate_error_percentage(inferred_a, real_a):
+        if np.isnan(inferred_a) or real_a == 0:
+            return np.nan
+        return ((inferred_a - real_a) / real_a) * 100
+
+    error_sc_ka = calculate_error_percentage(a_sc_ka, real_lattice_constant)
+    error_bcc_ka = calculate_error_percentage(a_bcc_ka, real_lattice_constant)
+    error_fcc_ka = calculate_error_percentage(a_fcc_ka, real_lattice_constant)
+
+    error_sc_kb = calculate_error_percentage(a_sc_kb, real_lattice_constant)
+    error_bcc_kb = calculate_error_percentage(a_bcc_kb, real_lattice_constant)
+    error_fcc_kb = calculate_error_percentage(a_fcc_kb, real_lattice_constant)
+
+    error_sc_combined = calculate_error_percentage(a_sc_combined, real_lattice_constant)
+    error_bcc_combined = calculate_error_percentage(a_bcc_combined, real_lattice_constant)
+    error_fcc_combined = calculate_error_percentage(a_fcc_combined, real_lattice_constant)
+
     peak_df = pd.DataFrame(
         {
             "Angle": mean_angles,
@@ -177,18 +195,27 @@ def generate_summary_tables(
     )
 
     summary_data = {
-        "avg_ka_d_spacing": [d_fit_ka],
-        "avg_kb_d_spacing": [d_fit_kb],
-        "combined_d_spacing": [d_fit_combined],
+        "inferred_ka_d_spacing": [d_fit_ka],
+        "inferred_kb_d_spacing": [d_fit_kb],
+        "inferred_combined_d_spacing": [d_fit_combined],
         "a_SC_ka": [a_sc_ka],
         "a_BCC_ka": [a_bcc_ka],
         "a_FCC_ka": [a_fcc_ka],
+        "error_SC_ka": [error_sc_ka],
+        "error_BCC_ka": [error_bcc_ka],
+        "error_FCC_ka": [error_fcc_ka],
         "a_SC_kb": [a_sc_kb],
         "a_BCC_kb": [a_bcc_kb],
         "a_FCC_kb": [a_fcc_kb],
+        "error_SC_kb": [error_sc_kb],
+        "error_BCC_kb": [error_bcc_kb],
+        "error_FCC_kb": [error_fcc_kb],
         "a_SC_combined": [a_sc_combined],
         "a_BCC_combined": [a_bcc_combined],
         "a_FCC_combined": [a_fcc_combined],
+        "error_SC_combined": [error_sc_combined],
+        "error_BCC_combined": [error_bcc_combined],
+        "error_FCC_combined": [error_fcc_combined],
     }
 
     summary_df = pd.DataFrame(summary_data)
