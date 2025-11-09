@@ -4,13 +4,13 @@ import numpy as np
 import pandas as pd
 from rich.console import Console
 
+from xray.bragg.main import generate_summary_tables
 from xray.bragg.peak_finding import (
     find_all_peaks_fitting,
     find_all_peaks_naive,
     fit_global_background,
 )
 from xray.bragg.viz import create_multi_material_report
-from xray.bragg.main import generate_summary_tables
 
 K_ALPHA_WAVELENGTH_MO = 0.7093  # Angstroms
 REAL_LATTICE_CONSTANT_NACL = 5.64  # Angstroms

@@ -215,3 +215,21 @@ def find_all_peaks_fitting(
             results.append((idx2, None, angles[idx2]))
 
     return results
+
+
+def get_predefined_peaks(df: pd.DataFrame, predefined_angles: list[float]) -> list:
+    """Returns predefined angles in a format consistent with peak-finding functions.
+
+    Args:
+        df: DataFrame containing 'Angle' column.
+        predefined_angles: A list of angles to be treated as peaks.
+
+    Returns:
+        A list of tuples, where each tuple is (closest_idx, None, angle).
+    """
+    angles = df["Angle"].values
+    results = []
+    for angle in predefined_angles:
+        closest_idx = np.argmin(np.abs(angles - angle))
+        results.append((closest_idx, (None, angle, None, None), angle))
+    return results

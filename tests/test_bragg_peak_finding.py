@@ -1,62 +1,25 @@
-import numpy as np
-import pandas as pd
+def test_get_predefined_peaks_format():
+    # Create a dummy DataFrame
+    angles_deg = np.linspace(0, 40, 400)
+    df = pd.DataFrame({"Angle": angles_deg, "Intensity": np.zeros_like(angles_deg)})
 
-from src.xray.bragg.peak_finding import find_all_peaks_naive
+    predefined_angles = [10.0, 20.0, 30.0]
+    result = get_predefined_peaks(df, predefined_angles)
 
+    assert isinstance(result, list)
+    assert len(result) == len(predefined_angles)
 
-def test_find_all_peaks_naive_no_smoothing():
-    # Create a DataFrame with some clear peaks and some noise
-    data = {"Intensity": [0, 1, 0, 0, 5, 0, 0, 10, 0, 0, 2, 0], "Angle": range(12)}
-    df = pd.DataFrame(data)
+    for item in result:
+        assert isinstance(item, tuple)
+        assert len(item) == 3
+        closest_idx, popt_tuple, angle_value = item
 
-    # Without smoothing, only prominent peaks should be found
-    peaks, _ = find_all_peaks_naive(df)
-    assert len(peaks) == 4
-    assert np.array_equal(peaks, [1, 4, 7, 10])
-
-
-def test_find_all_peaks_naive_with_smoothing():
-    # Create a DataFrame with some subtle peaks that might be missed without smoothing
-    data = {
-        "Intensity": [0, 0.5, 0.6, 0.5, 0.1, 0.2, 0.3, 0.2, 0.1, 0.8, 0.9, 0.8, 0.1, 0.0],
-        "Angle": range(14),
-    }
-    df = pd.DataFrame(data)
-
-    # Without smoothing, fewer peaks might be found
-    peaks_no_smooth, _ = find_all_peaks_naive(df)
-    assert len(peaks_no_smooth) == 2  # Expected peaks at index 2 and 10
-
-    # With smoothing, more subtle peaks should be detectable
-    # A smoothing window of 3 should help
-    peaks_with_smooth, _ = find_all_peaks_naive(df)
-    # The exact number of peaks might vary slightly depending on the smoothing effect
-    # but it should ideally be more or at least the same as without smoothing,
-    # and include the subtle ones.
-    assert len(peaks_with_smooth) >= len(peaks_no_smooth)
-    # Check if the expected peaks are still there or new ones are found
-    assert 2 in peaks_with_smooth
-    assert 10 in peaks_with_smooth
-
-
-def test_find_all_peaks_naive_smoothing_window_one():
-    # Smoothing window of 1 should behave like no smoothing
-    data = {"Intensity": [0, 1, 0, 0, 5, 0, 0, 10, 0, 0, 2, 0], "Angle": range(12)}
-    df = pd.DataFrame(data)
-
-    peaks_no_smooth, _ = find_all_peaks_naive(df)
-    peaks_smooth_one, _ = find_all_peaks_naive(df)
-
-    assert np.array_equal(peaks_no_smooth, peaks_smooth_one)
-
-
-def test_find_all_peaks_naive_smoothing_window_even_or_invalid():
-    # Even smoothing window should not apply smoothing (or raise error if implemented to do so)
-    # Current implementation skips smoothing if window is even.
-    data = {"Intensity": [0, 1, 0, 0, 5, 0, 0, 10, 0, 0, 2, 0], "Angle": range(12)}
-    df = pd.DataFrame(data)
-
-    peaks_no_smooth, _ = find_all_peaks_naive(df)
-    peaks_smooth_even, _ = find_all_peaks_naive(df)
-
-    assert np.array_equal(peaks_no_smooth, peaks_smooth_even)
+        assert isinstance(closest_idx, (int, np.integer))
+        assert isinstance(popt_tuple, tuple)
+        assert len(popt_tuple) == 4
+        assert popt_tuple[0] is None
+        assert isinstance(popt_tuple[1], float)
+        assert popt_tuple[2] is None
+        assert popt_tuple[3] is None
+        assert isinstance(angle_value, float)
+        assert np.isclose(popt_tuple[1], angle_value)

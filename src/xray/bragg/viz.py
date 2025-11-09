@@ -74,7 +74,7 @@ def _create_single_material_plot(
     )
 
     # 2. Initial peaks (these are just markers, no error bars)
-    initial_peaks = analysis_results.get("initial_peaks_idx", np.array([]))
+    initial_peaks = np.array(analysis_results.get("initial_peaks_idx", []))
     if initial_peaks.size > 0:
         fig.add_trace(
             go.Scatter(
@@ -174,109 +174,113 @@ def _create_single_material_plot(
         ka_y_values = fit_plot_data["ka_y_values"]
         ka_slope = fit_plot_data["ka_slope"]
 
-        fig.add_trace(
-            go.Scatter(
-                x=ka_x_values,
-                y=ka_y_values,
-                mode="markers",
-                name="Kα Data",
-                marker=dict(color="blue"),
-            ),
-            row=2,
-            col=1,
-        )
-        ka_fit_line_y = ka_slope * ka_x_values
-        fig.add_trace(
-            go.Scatter(
-                x=ka_x_values,
-                y=ka_fit_line_y,
-                mode="lines",
-                name=f"Kα Fit (slope={ka_slope:.4f})",
-                line=dict(color="blue", dash="dash"),
-            ),
-            row=2,
-            col=1,
-        )
-        fig.update_xaxes(
-            title_text="sin(θ)",
-            range=[ka_x_values.min() - 0.01, ka_x_values.max() + 0.01],
-            row=2,
-            col=1,
-        )
-        fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
+        if ka_x_values.size > 0: # Add check for empty array
+            fig.add_trace(
+                go.Scatter(
+                    x=ka_x_values,
+                    y=ka_y_values,
+                    mode="markers",
+                    name="Kα Data",
+                    marker=dict(color="blue"),
+                ),
+                row=2,
+                col=1,
+            )
+            ka_fit_line_y = ka_slope * ka_x_values
+            fig.add_trace(
+                go.Scatter(
+                    x=ka_x_values,
+                    y=ka_fit_line_y,
+                    mode="lines",
+                    name=f"Kα Fit (slope={ka_slope:.4f})",
+                    line=dict(color="blue", dash="dash"),
+                ),
+                row=2,
+                col=1,
+            )
+            fig.update_xaxes(
+                title_text="sin(θ)",
+                range=[ka_x_values.min() - 0.01, ka_x_values.max() + 0.01],
+                row=2,
+                col=1,
+            )
+            fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
 
         # K-beta fit
         kb_x_values = fit_plot_data["kb_x_values"]
         kb_y_values = fit_plot_data["kb_y_values"]
         kb_slope = fit_plot_data["kb_slope"]
 
-        fig.add_trace(
-            go.Scatter(
-                x=kb_x_values,
-                y=kb_y_values,
-                mode="markers",
-                name="Kβ Data",
-                marker=dict(color="green"),
-            ),
-            row=2,
-            col=1,
-        )
-        kb_fit_line_y = kb_slope * kb_x_values
-        fig.add_trace(
-            go.Scatter(
-                x=kb_x_values,
-                y=kb_fit_line_y,
-                mode="lines",
-                name=f"Kβ Fit (slope={kb_slope:.4f})",
-                line=dict(color="green", dash="dash"),
-            ),
-            row=2,
-            col=1,
-        )
-        fig.update_xaxes(
-            title_text="sin(θ)",
-            range=[kb_x_values.min() - 0.01, kb_x_values.max() + 0.01],
-            row=2,
-            col=1,
-        )
-        fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
+        if kb_x_values.size > 0: # Add check for empty array
+            fig.add_trace(
+                go.Scatter(
+                    x=kb_x_values,
+                    y=kb_y_values,
+                    mode="markers",
+                    name="Kβ Data",
+                    marker=dict(color="green"),
+                ),
+                row=2,
+                col=1,
+            )
+            kb_fit_line_y = kb_slope * kb_x_values
+            fig.add_trace(
+                go.Scatter(
+                    x=kb_x_values,
+                    y=kb_fit_line_y,
+                    mode="lines",
+                    name=f"Kβ Fit (slope={kb_slope:.4f})",
+                    line=dict(color="green", dash="dash"),
+                ),
+                row=2,
+                col=1,
+            )
+            fig.update_xaxes(
+                title_text="sin(θ)",
+                range=[kb_x_values.min() - 0.01, kb_x_values.max() + 0.01],
+                row=2,
+                col=1,
+            )
+            fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
 
         # Combined fit
         combined_x_values = fit_plot_data["combined_x_values"]
         combined_y_values = fit_plot_data["combined_y_values"]
         combined_slope = fit_plot_data["combined_slope"]
 
-        fig.add_trace(
-            go.Scatter(
-                x=combined_x_values,
-                y=combined_y_values,
-                mode="markers",
-                name="Combined Data",
-                marker=dict(color="purple"),
-            ),
-            row=2,
-            col=1,
-        )
-        combined_fit_line_y = combined_slope * combined_x_values
-        fig.add_trace(
-            go.Scatter(
-                x=combined_x_values,
-                y=combined_fit_line_y,
-                mode="lines",
-                name=f"Combined Fit (slope={combined_slope:.4f})",
-                line=dict(color="purple", dash="dash"),
-            ),
-            row=2,
-            col=1,
-        )
-        all_x_values_combined = np.concatenate((ka_x_values, kb_x_values))
-        fig.update_xaxes(
-            title_text="sin(θ)",
-            range=[all_x_values_combined.min() - 0.01, all_x_values_combined.max() + 0.01],
-            row=2,
-            col=1,
-        )
-        fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
+        if combined_x_values.size > 0: # Add check for empty array
+            fig.add_trace(
+                go.Scatter(
+                    x=combined_x_values,
+                    y=combined_y_values,
+                    mode="markers",
+                    name="Combined Data",
+                    marker=dict(color="purple"),
+                ),
+                row=2,
+                col=1,
+            )
+            combined_fit_line_y = combined_slope * combined_x_values
+            fig.add_trace(
+                go.Scatter(
+                    x=combined_x_values,
+                    y=combined_fit_line_y,
+                    mode="lines",
+                    name=f"Combined Fit (slope={combined_slope:.4f})",
+                    line=dict(color="purple", dash="dash"),
+                ),
+                row=2,
+                col=1,
+            )
+            all_x_values_combined = np.concatenate((ka_x_values, kb_x_values))
+            if all_x_values_combined.size > 0: # Add check for empty array before min/max
+                fig.update_xaxes(
+                    title_text="sin(θ)",
+                    range=[all_x_values_combined.min() - 0.01, all_x_values_combined.max() + 0.01],
+                    row=2,
+                    col=1,
+                )
+            fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
 
     fig.update_layout(
         height=1000,
