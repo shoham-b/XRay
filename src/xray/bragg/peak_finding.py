@@ -60,17 +60,34 @@ def bremsstrahlung_bg(x, bg_amp, x_offset, bg_scale):
 def fit_global_background(
     df: pd.DataFrame, initial_peaks: np.ndarray, window: int = 20, **kwargs
 ) -> tuple | None:
-    """Fits a single Bremsstrahlung background to the entire spectrum."""
+    """Fits a single Bremsstrahlung background to the entire spectrum, bridging over peaks."""
     x_data = df["Angle"].values
-    y_data = df["Intensity"].values
+    y_data = df["Intensity"].values.copy()  # Make a copy to modify
 
-    mask = np.ones_like(x_data, dtype=bool)
-    for idx in initial_peaks:
+    # Create a "bridge" over the peaks
+    sorted_peaks = np.sort(initial_peaks)
+    for idx in sorted_peaks:
         left = max(0, idx - window)
-        right = min(len(x_data), idx + window + 1)
-        mask[left:right] = False
+        right = min(len(x_data) - 1, idx + window)
 
-    x_bg, y_bg = x_data[mask], y_data[mask]
+        if left >= right:
+            continue
+
+        # Linearly interpolate between the edges of the window
+        x1, y1 = x_data[left], y_data[left]
+        x2, y2 = x_data[right], y_data[right]
+
+        # Create the linear bridge
+        m = (y2 - y1) / (x2 - x1) if (x2 - x1) != 0 else 0
+        b = y1 - m * x1
+
+        # Replace the data in the window with the bridge
+        bridge_indices = np.arange(left + 1, right)
+        if bridge_indices.size > 0:
+            y_data[bridge_indices] = m * x_data[bridge_indices] + b
+
+    # Now, fit the background to the modified data (with bridges)
+    x_bg, y_bg = x_data, y_data
     if len(x_bg) < 3:
         return None
 
@@ -109,16 +126,14 @@ def find_all_peaks_fitting(
 
     results = []
 
-    peak_props_map = {peak: {} for peak in initial_peaks}
-    for key, values in initial_peaks_properties.items():
-        for i, peak in enumerate(initial_peaks):
-            peak_props_map[peak][key] = values[i]
+    # Sort initial peaks by their index to easily find neighbors
+    sorted_initial_peaks_indices = np.sort(initial_peaks)
 
     # Define the model to fit for each peak
     def voigt_with_bg(x, amplitude, mean, sigma, gamma):
         return voigt(x, amplitude, mean, sigma, gamma) + bremsstrahlung_bg(x, *bg_params)
 
-    for idx in initial_peaks:
+    for i, idx in enumerate(sorted_initial_peaks_indices):
         try:
             left = max(0, idx - window)
             right = min(len(df), idx + window + 1)
@@ -135,8 +150,26 @@ def find_all_peaks_fitting(
 
             span = max(x_window.max() - x_window.min(), 1e-6)
             guess = [amplitude_guess, mean_guess, sigma_guess, gamma_guess]
-            lower = [0.0, mean_guess - span / 2, 1e-4, 1e-4]
-            upper = [max_intensity * 2.0, mean_guess + span / 2, span, span]
+
+            # Set bounds for the mean based on neighboring peaks
+            if i > 0:
+                prev_peak_angle = angles[sorted_initial_peaks_indices[i - 1]]
+                lower_bound_mean = angles[idx] - (angles[idx] - prev_peak_angle) * 0.25
+            else:
+                lower_bound_mean = -np.inf
+
+            if i < len(sorted_initial_peaks_indices) - 1:
+                next_peak_angle = angles[sorted_initial_peaks_indices[i + 1]]
+                upper_bound_mean = angles[idx] + (next_peak_angle - angles[idx]) * 0.25
+            else:
+                upper_bound_mean = np.inf
+
+            # The bounds for the mean should also be within the fitting window
+            lower_bound_mean = max(lower_bound_mean, x_window.min())
+            upper_bound_mean = min(upper_bound_mean, x_window.max())
+
+            lower = [0.0, lower_bound_mean, 1e-4, 1e-4]
+            upper = [max_intensity * 2.0, upper_bound_mean, span, span]
 
             popt, _ = curve_fit(
                 voigt_with_bg, x_window, y_window, p0=guess, bounds=(lower, upper), maxfev=20000
@@ -144,6 +177,10 @@ def find_all_peaks_fitting(
             results.append((idx, popt, popt[1]))
         except Exception:
             results.append((idx, None, angles[idx]))
+
+    # Re-sort results to match the original order of initial_peaks
+    original_order_map = {val: i for i, val in enumerate(initial_peaks)}
+    results.sort(key=lambda r: original_order_map.get(r[0], -1))
 
     return results
 
