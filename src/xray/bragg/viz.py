@@ -180,7 +180,7 @@ def _create_single_material_plot(
                     x=ka_x_values,
                     y=ka_y_values,
                     mode="markers",
-                    name="Kα Data",
+                    name="K&alpha; Data",
                     marker=dict(color="blue"),
                 ),
                 row=2,
@@ -192,7 +192,7 @@ def _create_single_material_plot(
                     x=ka_x_values,
                     y=ka_fit_line_y,
                     mode="lines",
-                    name=f"Kα Fit (slope={ka_slope:.4f})",
+                    name=f"K&alpha; Fit (slope={ka_slope:.4f})",
                     line=dict(color="blue", dash="dash"),
                 ),
                 row=2,
@@ -217,7 +217,7 @@ def _create_single_material_plot(
                     x=kb_x_values,
                     y=kb_y_values,
                     mode="markers",
-                    name="Kβ Data",
+                    name="K&beta; Data",
                     marker=dict(color="green"),
                 ),
                 row=2,
@@ -229,7 +229,7 @@ def _create_single_material_plot(
                     x=kb_x_values,
                     y=kb_fit_line_y,
                     mode="lines",
-                    name=f"Kβ Fit (slope={kb_slope:.4f})",
+                    name=f"K&beta; Fit (slope={kb_slope:.4f})",
                     line=dict(color="green", dash="dash"),
                 ),
                 row=2,
@@ -303,9 +303,9 @@ def create_multi_material_report(
         summary_table = analysis_data["summary_df"]
         fit_plot_data = analysis_data["fit_plot_data"]
         d_values = {
-            "ka": summary_table.loc[0, "inferred_ka_d_spacing"],
-            "kb": summary_table.loc[0, "inferred_kb_d_spacing"],
-            "combined": summary_table.loc[0, "inferred_combined_d_spacing"],
+            "ka": summary_table.loc[0, "inferred_ka_d_spacing (Angstrom)"],
+            "kb": summary_table.loc[0, "inferred_kb_d_spacing (Angstrom)"],
+            "combined": summary_table.loc[0, "inferred_combined_d_spacing (Angstrom)"],
         }
 
         fig = _create_single_material_plot(
@@ -327,30 +327,30 @@ def create_multi_material_report(
             <div class="mt-4">
                 <h4>Calculated d-spacing values (in Angstroms)</h4>
                 <ul>
-                    <li>Kα Fit: <b>{d_values['ka']:.4f} Å</b></li>
-                    <li>Kβ Fit: <b>{d_values['kb']:.4f} Å</b></li>
-                    <li>Combined Fit: <b>{d_values['combined']:.4f} Å</b></li>
+                    <li>K&alpha; Fit: <b>{d_values['ka']:.4f} &Aring;</b></li>
+                    <li>K&beta; Fit: <b>{d_values['kb']:.4f} &Aring;</b></li>
+                    <li>Combined Fit: <b>{d_values['combined']:.4f} &Aring;</b></li>
                 </ul>
             </div>
             <div class="mt-4">
-                <h4>Inferred Lattice Constants 'a' and Error Percentage (compared to {analysis_data['real_lattice_constant']:.2f} Å)</h4>
-                <h5>Kα Fit:</h5>
+                <h4>Inferred Lattice Constants 'a' and Error Percentage (compared to {analysis_data['real_lattice_constant']:.2f} &Aring;)</h4>
+                <h5>K&alpha; Fit:</h5>
                 <ul>
-                    <li>SC: <b>{summary_table.loc[0, 'a_SC_ka']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_SC_ka']:.2f}%)</li>
-                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_ka']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_BCC_ka']:.2f}%)</li>
-                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_ka']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_FCC_ka']:.2f}%)</li>
+                    <li>SC: <b>{summary_table.loc[0, 'a_SC_ka (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_SC_ka (%)']:.2f}%)</li>
+                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_ka (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_BCC_ka (%)']:.2f}%)</li>
+                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_ka (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_FCC_ka (%)']:.2f}%)</li>
                 </ul>
-                <h5>Kβ Fit:</h5>
+                <h5>K&beta; Fit:</h5>
                 <ul>
-                    <li>SC: <b>{summary_table.loc[0, 'a_SC_kb']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_SC_kb']:.2f}%)</li>
-                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_kb']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_BCC_kb']:.2f}%)</li>
-                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_kb']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_FCC_kb']:.2f}%)</li>
+                    <li>SC: <b>{summary_table.loc[0, 'a_SC_kb (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_SC_kb (%)']:.2f}%)</li>
+                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_kb (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_BCC_kb (%)']:.2f}%)</li>
+                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_kb (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_FCC_kb (%)']:.2f}%)</li>
                 </ul>
                 <h5>Combined Fit:</h5>
                 <ul>
-                    <li>SC: <b>{summary_table.loc[0, 'a_SC_combined']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_SC_combined']:.2f}%)</li>
-                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_combined']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_BCC_combined']:.2f}%)</li>
-                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_combined']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_FCC_combined']:.2f}%)</li>
+                    <li>SC: <b>{summary_table.loc[0, 'a_SC_combined (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_SC_combined (%)']:.2f}%)</li>
+                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_combined (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_BCC_combined (%)']:.2f}%)</li>
+                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_combined (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_FCC_combined (%)']:.2f}%)</li>
                 </ul>
 
             </div>
