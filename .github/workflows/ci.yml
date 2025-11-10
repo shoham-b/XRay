@@ -29,159 +29,13 @@ permissions:
   id-token: write
 
 jobs:
-  build-test-windows:
-    name: Test (windows-latest, py${{ matrix.python-version }})
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-      - name: Cache uv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-            ~\AppData\Local\uv\Cache
-          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
-      - name: Install dependencies
-        run: |
-          uv sync --group dev
-      - name: Cache pre-commit
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pre-commit
-          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}
-      - name: Pre-commit
-        run: |
-          uv run pre-commit run --all-files --show-diff-on-failure
-      - name: Run tests with coverage
-        run: |
-          uv run pytest -n auto --junitxml=junit-windows-latest-py${{ matrix.python-version }}.xml
-      - name: Upload JUnit test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-windows-latest-py${{ matrix.python-version }}
-          path: junit-windows-latest-py${{ matrix.python-version }}.xml
-          if-no-files-found: warn
-      - name: Upload coverage data file
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-data-windows-latest-py${{ matrix.python-version }}
-          path: .coverage
-          if-no-files-found: warn
-
-  build-test-unix:
-    name: Test (${{ matrix.os }}, py${{ matrix.python-version }})
-    runs-on: ${{ matrix.os }}
-    needs: build-test-windows
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ["3.12", "3.13", "3.14"]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-      - name: Cache uv
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-            ~\AppData\Local\uv\Cache
-          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
-      - name: Install dependencies
-        run: |
-          uv sync --group dev
-      - name: Cache pre-commit
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pre-commit
-          key: ${{ runner.os }}-precommit-${{ hashFiles('.pre-commit-config.yaml') }}
-      - name: Pre-commit
-        run: |
-          uv run pre-commit run --all-files --show-diff-on-failure
-      - name: Run tests with coverage
-        run: |
-          uv run pytest -n auto --junitxml=junit-${{ matrix.os }}-py${{ matrix.python-version }}.xml
-      - name: Upload JUnit test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: junit-${{ matrix.os }}-py${{ matrix.python-version }}.xml
-          if-no-files-found: warn
-      - name: Upload coverage data file
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-data-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: .coverage
-          if-no-files-found: warn
-
-  coverage-aggregate:
-    name: Coverage Aggregate
+  deploy:
+    name: Build and Deploy GitHub Pages
     runs-on: ubuntu-latest
-    needs: [build-test-windows, build-test-unix]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python 3.x
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-      - name: Download coverage data artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: coverage-data-*
-          path: coverage-data
-          merge-multiple: false
-      - name: Install dependencies for coverage tooling
-        run: |
-          uv sync --group dev
-      - name: Prepare coverage files
-        shell: bash
-        run: |
-          bash scripts/ci/prepare_coverage.sh
-      - name: Combine and report coverage
-        shell: bash
-        run: |
-          bash scripts/ci/combine_coverage.sh
-      - name: Upload combined coverage artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-combined
-          path: |
-            coverage.xml
-            htmlcov
-          if-no-files-found: warn
-
-  build-graphs:
-    name: Build Graphs
-    runs-on: ubuntu-latest
-    needs: [coverage-aggregate]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -195,51 +49,13 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --group dev
-      - name: Restore previous pages artifact
-        id: download-pages
-        uses: actions/download-artifact@v4
-        with:
-          name: github-pages
-          path: artifacts
-        continue-on-error: true
-      - name: Prepare artifact workspace
+      - name: Run Bragg analysis
         run: |
-          mkdir -p artifacts
-          if [ -d "artifacts" ]; then
-            echo "Artifacts directory ready"
-          fi
-      - name: Build graphs
-        shell: bash
-        run: |
-          bash scripts/ci/build_graphs.sh artifacts both scripts/pages_index.html
-      - name: List generated graphs
-        run: |
-          find artifacts -maxdepth 2 -type f | sort
-      - name: Upload graphs artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: graphs
-          path: artifacts/graphs
-          if-no-files-found: warn
-
-  deploy-pages:
-    name: Deploy GitHub Pages
-    needs: build-graphs
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-    environment:
-      name: github-pages
-    steps:
-      - name: Download graphs artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: graphs
-          path: ./site
+          uv run bragg
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./site
+          path: artifacts/bragg
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
