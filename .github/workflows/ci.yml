@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   deploy:
-    name: Build and Deploy GitHub Pages
+    name: Deploy GitHub Pages
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
     environment:
@@ -38,24 +38,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          version: "latest"
-      - name: Install dependencies
-        run: |
-          uv sync --group dev
-      - name: Run Bragg analysis
-        run: |
-          uv run xray bragg
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: artifacts/bragg
+          path: output
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

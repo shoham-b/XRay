@@ -20,7 +20,7 @@ class PathManager:
             self.data_path = data_path
 
         if artifacts_path is None:
-            self.artifacts_path = self.project_root / "artifacts"
+            self.artifacts_path = self.project_root / "output"
         else:
             self.artifacts_path = artifacts_path
 
