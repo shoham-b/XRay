@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.special import wofz
 
+from xray.bragg.calculations import calculate_error_percentage
+
 
 def _ensure_out_dir(out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -306,36 +308,20 @@ def create_multi_material_report(
             classes="table table-striped table-hover", justify="center"
         )
 
+        real_d_spacing = analysis_data["real_lattice_constant"]
+        error_ka = calculate_error_percentage(d_values["ka"], real_d_spacing)
+        error_kb = calculate_error_percentage(d_values["kb"], real_d_spacing)
+        error_combined = calculate_error_percentage(d_values["combined"], real_d_spacing)
+
         bragg_summary_html = f"""
             <div class="mt-4">
                 <h4>Calculated d-spacing values (in Angstroms)</h4>
+                <p>Comparing with known d-spacing of <b>{real_d_spacing:.2f} &Aring;</b></p>
                 <ul>
-                    <li>K&alpha; Fit: <b>{d_values['ka']:.4f} &Aring;</b></li>
-                    <li>K&beta; Fit: <b>{d_values['kb']:.4f} &Aring;</b></li>
-                    <li>Combined Fit: <b>{d_values['combined']:.4f} &Aring;</b></li>
+                    <li>K&alpha; Fit: <b>{d_values['ka']:.4f} &Aring;</b> (Error: {error_ka:.2f}%)</li>
+                    <li>K&beta; Fit: <b>{d_values['kb']:.4f} &Aring;</b> (Error: {error_kb:.2f}%)</li>
+                    <li>Combined Fit: <b>{d_values['combined']:.4f} &Aring;</b> (Error: {error_combined:.2f}%)</li>
                 </ul>
-            </div>
-            <div class="mt-4">
-                <h4>Inferred Lattice Constants 'a' and Error Percentage (compared to {analysis_data['real_lattice_constant']:.2f} &Aring;)</h4>
-                <h5>K&alpha; Fit:</h5>
-                <ul>
-                    <li>SC: <b>{summary_table.loc[0, 'a_SC_ka (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_SC_ka (%)']:.2f}%)</li>
-                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_ka (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_BCC_ka (%)']:.2f}%)</li>
-                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_ka (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_FCC_ka (%)']:.2f}%)</li>
-                </ul>
-                <h5>K&beta; Fit:</h5>
-                <ul>
-                    <li>SC: <b>{summary_table.loc[0, 'a_SC_kb (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_SC_kb (%)']:.2f}%)</li>
-                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_kb (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_BCC_kb (%)']:.2f}%)</li>
-                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_kb (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_FCC_kb (%)']:.2f}%)</li>
-                </ul>
-                <h5>Combined Fit:</h5>
-                <ul>
-                    <li>SC: <b>{summary_table.loc[0, 'a_SC_combined (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_SC_combined (%)']:.2f}%)</li>
-                    <li>BCC: <b>{summary_table.loc[0, 'a_BCC_combined (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_BCC_combined (%)']:.2f}%)</li>
-                    <li>FCC: <b>{summary_table.loc[0, 'a_FCC_combined (Angstrom)']:.4f} &Aring;</b> (Error: {summary_table.loc[0, 'error_FCC_combined (%)']:.2f}%)</li>
-                </ul>
-
             </div>
         """
 

@@ -51,7 +51,7 @@ jobs:
           uv sync --group dev
       - name: Run Bragg analysis
         run: |
-          uv run bragg
+          uv run xray bragg
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

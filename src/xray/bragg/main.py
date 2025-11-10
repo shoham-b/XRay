@@ -5,7 +5,6 @@ import pandas as pd
 from rich.console import Console
 
 from xray.bragg.calculations import (
-    calculate_cubic_lattice_constants,
     calculate_error_percentage,
     perform_bragg_fit_core,
     perform_combined_fit,
@@ -257,45 +256,21 @@ def generate_summary_tables(
         combined_data, lambda_a, lambda_b
     )
 
-    # Calculate lattice constants
-    lattice_ka = calculate_cubic_lattice_constants(d_fit_ka)
-    lattice_kb = calculate_cubic_lattice_constants(d_fit_kb)
-    lattice_combined = calculate_cubic_lattice_constants(d_fit_combined)
+    real_d_spacing = real_lattice_constant # Assuming SC for d-spacing comparison
 
-    # Calculate errors
-    errors_ka = {
-        k: calculate_error_percentage(v, real_lattice_constant) for k, v in lattice_ka.items()
-    }
-    errors_kb = {
-        k: calculate_error_percentage(v, real_lattice_constant) for k, v in lattice_kb.items()
-    }
-    errors_combined = {
-        k: calculate_error_percentage(v, real_lattice_constant) for k, v in lattice_combined.items()
-    }
+    error_d_ka = calculate_error_percentage(d_fit_ka, real_d_spacing)
+    error_d_kb = calculate_error_percentage(d_fit_kb, real_d_spacing)
+    error_d_combined = calculate_error_percentage(d_fit_combined, real_d_spacing)
 
     summary_df = pd.DataFrame(
         {
+            "known_d_spacing (Angstrom)": [real_d_spacing],
             "inferred_ka_d_spacing (Angstrom)": [d_fit_ka],
+            "error_ka_d_spacing (%)": [error_d_ka],
             "inferred_kb_d_spacing (Angstrom)": [d_fit_kb],
+            "error_kb_d_spacing (%)": [error_d_kb],
             "inferred_combined_d_spacing (Angstrom)": [d_fit_combined],
-            "a_SC_ka (Angstrom)": [lattice_ka["sc"]],
-            "a_BCC_ka (Angstrom)": [lattice_ka["bcc"]],
-            "a_FCC_ka (Angstrom)": [lattice_ka["fcc"]],
-            "error_SC_ka (%)": [errors_ka["sc"]],
-            "error_BCC_ka (%)": [errors_ka["bcc"]],
-            "error_FCC_ka (%)": [errors_ka["fcc"]],
-            "a_SC_kb (Angstrom)": [lattice_kb["sc"]],
-            "a_BCC_kb (Angstrom)": [lattice_kb["bcc"]],
-            "a_FCC_kb (Angstrom)": [lattice_kb["fcc"]],
-            "error_SC_kb (%)": [errors_kb["sc"]],
-            "error_BCC_kb (%)": [errors_kb["bcc"]],
-            "error_FCC_kb (%)": [errors_kb["fcc"]],
-            "a_SC_combined (Angstrom)": [lattice_combined["sc"]],
-            "a_BCC_combined (Angstrom)": [lattice_combined["bcc"]],
-            "a_FCC_combined (Angstrom)": [lattice_combined["fcc"]],
-            "error_SC_combined (%)": [errors_combined["sc"]],
-            "error_BCC_combined (%)": [errors_combined["bcc"]],
-            "error_FCC_combined (%)": [errors_combined["fcc"]],
+            "error_combined_d_spacing (%)": [error_d_combined],
         }
     )
 
