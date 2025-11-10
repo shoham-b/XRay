@@ -4,11 +4,20 @@ import numpy as np
 import pandas as pd
 from rich.console import Console
 
+from xray.bragg.calculations import (
+    calculate_cubic_lattice_constants,
+    calculate_d_spacing,
+    calculate_error_percentage,
+    perform_bragg_fit_core,
+    perform_combined_fit,
+    perform_linear_fit,
+)
 from xray.bragg.peak_finding import (
     find_all_peaks_fitting,
     find_all_peaks_naive,
     fit_global_background,
 )
+from xray.bragg.peak_pairing import identify_ka_kb_peaks
 
 
 def load_and_prep_data(input_path: Path, console: Console) -> pd.DataFrame | None:
@@ -60,43 +69,21 @@ def perform_peak_analysis(df: pd.DataFrame, params: dict, console: Console) -> d
     }
 
 
-def generate_summary_tables(
-        df: pd.DataFrame, analysis_results: dict, wavelength: float, real_lattice_constant: float
-) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
-    """
-    Generates summary tables from the analysis results.
-    1. Identifies K-alpha and K-beta pairs.
-    2. Performs separate linear fits for K-alpha and K-beta peaks to find d-spacing.
-    3. Performs a combined linear fit (K-alpha and normalized K-beta) to find d-spacing.
-    4. Calculates potential lattice constants 'a' for cubic systems based on the fitted d values.
-    5. Calculates error percentages for each inferred lattice constant compared to a real value.
-    6. Returns dataframes and a dictionary with fit data for plotting.
-    """
-
-    if not analysis_results["valid_fits"]:
-        return pd.DataFrame(), pd.DataFrame(), {}
-
-    lambda_a = wavelength  # Assume the provided wavelength is K-alpha
-    lambda_b = 0.6309  # Mo K-beta wavelength in Angstroms
-
-    # Extract data from valid fits
+def _extract_fit_data(valid_fits: list) -> list[tuple]:
+    """Extract fit data from valid fits results."""
     fit_data = []
-    for _, popt, mean_angle in analysis_results["valid_fits"]:
-        # Check if popt is a valid fit result or a placeholder
+    for _, popt, mean_angle in valid_fits:
         if popt is not None and not (isinstance(popt, tuple) and all(p == 0 for p in popt)):
-            # Use actual fit parameters
             fit_data.append((popt[0], popt[2], popt[3], mean_angle))
         else:
-            # Use NaN for amplitude, sigma, gamma if no valid fit or if it's a placeholder
             fit_data.append((np.nan, np.nan, np.nan, mean_angle))
+    return fit_data
 
-    if not fit_data:
-        return pd.DataFrame(), pd.DataFrame(), {}
 
+def _create_peaks_dataframe(fit_data: list[tuple]) -> pd.DataFrame:
+    """Create sorted DataFrame from fit data."""
     amplitudes, sigmas, gammas, mean_angles = zip(*fit_data, strict=False)
-
-    # Create a dataframe to work with the peaks
-    peaks_data = (
+    return (
         pd.DataFrame(
             {"amplitude": amplitudes, "sigma": sigmas, "gamma": gammas, "angle": mean_angles}
         )
@@ -104,102 +91,82 @@ def generate_summary_tables(
         .reset_index(drop=True)
     )
 
-    ka_peaks_angles = []
-    kb_peaks_angles = []
-    combined_sin_thetas_for_fit = []  # For the combined fit
 
-    # Check if amplitudes are all NaN, indicating predefined angles were used
-    if peaks_data["amplitude"].isnull().all():
-        # If all amplitudes are NaN, we use the original index from valid_fits to determine K-alpha/K-beta
-        for i, (_, _, mean_angle) in enumerate(analysis_results["valid_fits"]):
-            if i % 2 != 0:  # Odd indices are K-alpha
-                ka_peaks_angles.append(mean_angle)
-                combined_sin_thetas_for_fit.append(np.sin(np.deg2rad(mean_angle / 2)))
-            else:  # Even indices are K-beta
-                kb_peaks_angles.append(mean_angle)
-                sin_theta_b = np.sin(np.deg2rad(mean_angle / 2))
-                combined_sin_thetas_for_fit.append(sin_theta_b) # Directly append sin(theta_beta)
-    else:
-        for i in range(0, len(peaks_data), 2):
-            if i + 1 < len(peaks_data):
-                pair = peaks_data.iloc[i: i + 2]
-                # Original logic for identifying K-alpha and K-beta based on amplitude
-                ka_peak = pair.loc[pair["amplitude"].idxmax()]
-                kb_peak = pair.loc[pair["amplitude"].idxmin()]
+def _perform_bragg_fit(
+    peak_angles: list[float], wavelength: float
+) -> tuple[np.ndarray, np.ndarray, float, float]:
+    """Perform Bragg fit for given peak angles and single wavelength."""
+    if not peak_angles:
+        return np.array([]), np.array([]), np.nan, np.nan
+    
+    # Prepare data for fit: single wavelength for all peaks
+    data_with_wavelength = [(angle, wavelength, i) for i, angle in enumerate(np.sort(peak_angles), start=1)]
+    return perform_bragg_fit_core(data_with_wavelength)
 
-                ka_peaks_angles.append(ka_peak["angle"])
-                kb_peaks_angles.append(kb_peak["angle"])
 
-                # For combined fit: add K-alpha sin(theta)
-                combined_sin_thetas_for_fit.append(np.sin(np.deg2rad(ka_peak["angle"] / 2)))
-                # For combined fit: add K-beta sin(theta) without normalization
-                combined_sin_thetas_for_fit.append(np.sin(np.deg2rad(kb_peak["angle"] / 2)))
-            else:
-                # Handle lone peak (assume it's K-alpha)
-                lone_peak = peaks_data.iloc[i]
-                ka_peaks_angles.append(lone_peak["angle"])
-                combined_sin_thetas_for_fit.append(np.sin(np.deg2rad(lone_peak["angle"] / 2)))
+def generate_summary_tables(
+    df: pd.DataFrame, analysis_results: dict, wavelength: float, real_lattice_constant: float
+) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
+    """
+    Generates summary tables from the analysis results.
+    
+    1. Identifies K-alpha and K-beta pairs.
+    2. Performs separate linear fits for K-alpha and K-beta peaks to find d-spacing.
+    3. Performs a combined linear fit to find d-spacing.
+    4. Calculates potential lattice constants for cubic systems.
+    5. Calculates error percentages compared to known values.
+    
+    Returns:
+        Tuple of (peak_df, summary_df, fit_plot_data)
+    """
+    if not analysis_results["valid_fits"]:
+        return pd.DataFrame(), pd.DataFrame(), {}
 
-    # --- K-alpha only fit ---
-    ka_thetas_sorted = np.deg2rad(np.sort(ka_peaks_angles) / 2)
-    ka_sin_theta_sorted = np.sin(ka_thetas_sorted)
-    ka_n_values = np.arange(1, len(ka_sin_theta_sorted) + 1)
+    lambda_a = wavelength  # K-alpha wavelength
+    lambda_b = 0.6309  # Mo K-beta wavelength in Angstroms
 
-    ka_m_prime = np.sum(ka_sin_theta_sorted * ka_n_values) / np.sum(
-        ka_sin_theta_sorted * ka_sin_theta_sorted
+    # Extract and prepare data
+    fit_data = _extract_fit_data(analysis_results["valid_fits"])
+    if not fit_data:
+        return pd.DataFrame(), pd.DataFrame(), {}
+
+    peaks_data = _create_peaks_dataframe(fit_data)
+    amplitudes, sigmas, gammas, mean_angles = zip(*fit_data, strict=False)
+
+    # Identify K-alpha and K-beta peaks
+    ka_peaks_angles, kb_peaks_angles, combined_data = identify_ka_kb_peaks(
+        peaks_data, analysis_results["valid_fits"]
     )
-    d_fit_ka = ka_m_prime * lambda_a / 2
 
-    # --- K-beta only fit ---
-    kb_thetas_sorted = np.deg2rad(np.sort(kb_peaks_angles) / 2)
-    kb_sin_theta_sorted = np.sin(kb_thetas_sorted)
-    kb_n_values = np.arange(1, len(kb_sin_theta_sorted) + 1)
-
-    kb_m_prime = np.sum(kb_sin_theta_sorted * kb_n_values) / np.sum(
-        kb_sin_theta_sorted * kb_sin_theta_sorted
+    # Perform fits for K-alpha, K-beta, and combined
+    ka_sin_theta, ka_n_values, ka_slope, d_fit_ka = _perform_bragg_fit(ka_peaks_angles, lambda_a)
+    kb_sin_theta, kb_n_values, kb_slope, d_fit_kb = _perform_bragg_fit(kb_peaks_angles, lambda_b)
+    
+    # Combined fit - uses both wavelengths appropriately for each point
+    combined_sin_theta, combined_n_values, combined_slope, d_fit_combined = perform_combined_fit(
+        combined_data, lambda_a, lambda_b
     )
-    d_fit_kb = kb_m_prime * lambda_b / 2
 
-    # --- Combined fit (K-alpha and normalized K-beta) ---
-    combined_sin_theta_sorted = np.array(sorted(combined_sin_thetas_for_fit))
-    combined_n_values = np.arange(1, len(combined_sin_theta_sorted) + 1)
+    # Calculate lattice constants
+    lattice_ka = calculate_cubic_lattice_constants(d_fit_ka)
+    lattice_kb = calculate_cubic_lattice_constants(d_fit_kb)
+    lattice_combined = calculate_cubic_lattice_constants(d_fit_combined)
 
-    combined_m_prime = np.sum(combined_sin_theta_sorted * combined_n_values) / np.sum(
-        combined_sin_theta_sorted * combined_sin_theta_sorted
-    )
-    d_fit_combined = combined_m_prime * lambda_a / 2  # Use K-alpha wavelength for combined fit
+    # Calculate errors
+    errors_ka = {
+        k: calculate_error_percentage(v, real_lattice_constant)
+        for k, v in lattice_ka.items()
+    }
+    errors_kb = {
+        k: calculate_error_percentage(v, real_lattice_constant)
+        for k, v in lattice_kb.items()
+    }
+    errors_combined = {
+        k: calculate_error_percentage(v, real_lattice_constant)
+        for k, v in lattice_combined.items()
+    }
 
-    # Calculate potential 'a' values for cubic lattices
-    a_sc_ka = d_fit_ka * np.sqrt(1)
-    a_bcc_ka = d_fit_ka * np.sqrt(2)
-    a_fcc_ka = d_fit_ka * np.sqrt(3)
-
-    a_sc_kb = d_fit_kb * np.sqrt(1) if kb_peaks_angles else np.nan
-    a_bcc_kb = d_fit_kb * np.sqrt(2) if kb_peaks_angles else np.nan
-    a_fcc_kb = d_fit_kb * np.sqrt(3) if kb_peaks_angles else np.nan
-
-    a_sc_combined = d_fit_combined * np.sqrt(1)
-    a_bcc_combined = d_fit_combined * np.sqrt(2)
-    a_fcc_combined = d_fit_combined * np.sqrt(3)
-
-    # Calculate error percentages
-    def calculate_error_percentage(inferred_a, real_a):
-        if np.isnan(inferred_a) or real_a == 0:
-            return np.nan
-        return ((inferred_a - real_a) / real_a) * 100
-
-    error_sc_ka = calculate_error_percentage(a_sc_ka, real_lattice_constant)
-    error_bcc_ka = calculate_error_percentage(a_bcc_ka, real_lattice_constant)
-    error_fcc_ka = calculate_error_percentage(a_fcc_ka, real_lattice_constant)
-
-    error_sc_kb = calculate_error_percentage(a_sc_kb, real_lattice_constant)
-    error_bcc_kb = calculate_error_percentage(a_bcc_kb, real_lattice_constant)
-    error_fcc_kb = calculate_error_percentage(a_fcc_kb, real_lattice_constant)
-
-    error_sc_combined = calculate_error_percentage(a_sc_combined, real_lattice_constant)
-    error_bcc_combined = calculate_error_percentage(a_bcc_combined, real_lattice_constant)
-    error_fcc_combined = calculate_error_percentage(a_fcc_combined, real_lattice_constant)
-
+    # Create output DataFrames
     peak_df = pd.DataFrame(
         {
             "Angle": mean_angles,
@@ -209,42 +176,40 @@ def generate_summary_tables(
         }
     )
 
-    summary_data = {
+    summary_df = pd.DataFrame({
         "inferred_ka_d_spacing": [d_fit_ka],
         "inferred_kb_d_spacing": [d_fit_kb],
         "inferred_combined_d_spacing": [d_fit_combined],
-        "a_SC_ka": [a_sc_ka],
-        "a_BCC_ka": [a_bcc_ka],
-        "a_FCC_ka": [a_fcc_ka],
-        "error_SC_ka": [error_sc_ka],
-        "error_BCC_ka": [error_bcc_ka],
-        "error_FCC_ka": [error_fcc_ka],
-        "a_SC_kb": [a_sc_kb],
-        "a_BCC_kb": [a_bcc_kb],
-        "a_FCC_kb": [a_fcc_kb],
-        "error_SC_kb": [error_sc_kb],
-        "error_BCC_kb": [error_bcc_kb],
-        "error_FCC_kb": [error_fcc_kb],
-        "a_SC_combined": [a_sc_combined],
-        "a_BCC_combined": [a_bcc_combined],
-        "a_FCC_combined": [a_fcc_combined],
-        "error_SC_combined": [error_sc_combined],
-        "error_BCC_combined": [error_bcc_combined],
-        "error_FCC_combined": [error_fcc_combined],
-    }
-
-    summary_df = pd.DataFrame(summary_data)
+        "a_SC_ka": [lattice_ka["sc"]],
+        "a_BCC_ka": [lattice_ka["bcc"]],
+        "a_FCC_ka": [lattice_ka["fcc"]],
+        "error_SC_ka": [errors_ka["sc"]],
+        "error_BCC_ka": [errors_ka["bcc"]],
+        "error_FCC_ka": [errors_ka["fcc"]],
+        "a_SC_kb": [lattice_kb["sc"]],
+        "a_BCC_kb": [lattice_kb["bcc"]],
+        "a_FCC_kb": [lattice_kb["fcc"]],
+        "error_SC_kb": [errors_kb["sc"]],
+        "error_BCC_kb": [errors_kb["bcc"]],
+        "error_FCC_kb": [errors_kb["fcc"]],
+        "a_SC_combined": [lattice_combined["sc"]],
+        "a_BCC_combined": [lattice_combined["bcc"]],
+        "a_FCC_combined": [lattice_combined["fcc"]],
+        "error_SC_combined": [errors_combined["sc"]],
+        "error_BCC_combined": [errors_combined["bcc"]],
+        "error_FCC_combined": [errors_combined["fcc"]],
+    })
 
     fit_plot_data = {
-        "ka_x_values": ka_sin_theta_sorted,
+        "ka_x_values": ka_sin_theta,
         "ka_y_values": ka_n_values,
-        "ka_slope": ka_m_prime,
-        "kb_x_values": kb_sin_theta_sorted,
+        "ka_slope": ka_slope,
+        "kb_x_values": kb_sin_theta,
         "kb_y_values": kb_n_values,
-        "kb_slope": kb_m_prime,
-        "combined_x_values": combined_sin_theta_sorted,
+        "kb_slope": kb_slope,
+        "combined_x_values": combined_sin_theta,
         "combined_y_values": combined_n_values,
-        "combined_slope": combined_m_prime,
+        "combined_slope": combined_slope,
     }
 
     return peak_df, summary_df, fit_plot_data

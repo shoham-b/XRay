@@ -243,23 +243,12 @@ def _create_single_material_plot(
             )
             fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
 
-        # Combined fit
+        # Combined fit line only (no additional dots)
         combined_x_values = fit_plot_data["combined_x_values"]
         combined_y_values = fit_plot_data["combined_y_values"]
         combined_slope = fit_plot_data["combined_slope"]
 
         if combined_x_values.size > 0: # Add check for empty array
-            fig.add_trace(
-                go.Scatter(
-                    x=combined_x_values,
-                    y=combined_y_values,
-                    mode="markers",
-                    name="Combined Data",
-                    marker=dict(color="purple"),
-                ),
-                row=2,
-                col=1,
-            )
             combined_fit_line_y = combined_slope * combined_x_values
             fig.add_trace(
                 go.Scatter(
@@ -363,6 +352,7 @@ def create_multi_material_report(
                     <li>BCC: <b>{summary_table.loc[0, 'a_BCC_combined']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_BCC_combined']:.2f}%)</li>
                     <li>FCC: <b>{summary_table.loc[0, 'a_FCC_combined']:.4f} Å</b> (Error: {summary_table.loc[0, 'error_FCC_combined']:.2f}%)</li>
                 </ul>
+
             </div>
         """
 
