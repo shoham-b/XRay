@@ -98,7 +98,6 @@ def get_partner_error(spot_list, target_x, target_y, tolerance):
     Returns the error distance if found, otherwise None.
     """
     min_dist = float("inf")
-    found = False
 
     for x, y in spot_list:
         dist = math.sqrt((x - target_x) * 2 + (y - target_y) * 2)

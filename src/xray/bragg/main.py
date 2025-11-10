@@ -92,13 +92,12 @@ def perform_fitting_with_predefined_peaks(
         df, initial_peaks, initial_peaks_properties, bg_params, window=params["window"]
     )
 
-    console.print("Peak fitting completed.")
-
     return {
         "initial_peaks_idx": initial_peaks,
         "initial_peaks_properties": initial_peaks_properties,
         "valid_fits": valid_fits,
         "bg_params": bg_params,
+        "predefined_angles": predefined_angles,
     }
 
 
@@ -178,7 +177,11 @@ def _perform_bragg_fit(
 
 
 def generate_summary_tables(
-    df: pd.DataFrame, analysis_results: dict, wavelength: float, real_lattice_constant: float
+    df: pd.DataFrame,
+    analysis_results: dict,
+    wavelength: float,
+    real_lattice_constant: float,
+    predefined_angles: list[float],
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Generates summary tables from the analysis results.
@@ -203,12 +206,46 @@ def generate_summary_tables(
     if not fit_data:
         return pd.DataFrame(), pd.DataFrame(), {}
 
-    peaks_data = _create_peaks_dataframe(fit_data)
-    amplitudes, sigmas, gammas, mean_angles = zip(*fit_data, strict=False)
+    # Create processed peak data with predefined and fitted angles
+    processed_peak_data = []
+    for i, (idx, popt, fitted_mean_angle) in enumerate(analysis_results["valid_fits"]):
+        predefined_mean_angle = predefined_angles[i] if i < len(predefined_angles) else np.nan
+        if popt is not None:
+            amplitude, sigma, gamma = popt[0], popt[2], popt[3]
+        else:
+            amplitude, sigma, gamma = np.nan, np.nan, np.nan
+        processed_peak_data.append(
+            {
+                "Predefined Angle": predefined_mean_angle,
+                "Fitted Angle": fitted_mean_angle,
+                "Amplitude": amplitude,
+                "Sigma": sigma,
+                "Gamma": gamma,
+            }
+        )
+
+    peak_df = pd.DataFrame(processed_peak_data)
+    peak_df.rename(
+        columns={
+            "Predefined Angle": "predefined_angle",
+            "Fitted Angle": "angle",
+            "Amplitude": "amplitude",
+            "Sigma": "sigma",
+            "Gamma": "gamma",
+        },
+        inplace=True,
+    )
+    peak_df = peak_df.sort_values("angle").reset_index(drop=True)
+
+    # Now extract amplitudes, sigmas, gammas, and mean_angles from the sorted peak_df
+    amplitudes = peak_df["amplitude"].values
+    sigmas = peak_df["sigma"].values
+    gammas = peak_df["gamma"].values
+    mean_angles = peak_df["angle"].values
 
     # Identify K-alpha and K-beta peaks
     ka_peaks_angles, kb_peaks_angles, combined_data = identify_ka_kb_peaks(
-        peaks_data, analysis_results["valid_fits"]
+        peak_df, analysis_results["valid_fits"]
     )
 
     # Perform fits for K-alpha, K-beta, and combined
@@ -235,16 +272,6 @@ def generate_summary_tables(
     errors_combined = {
         k: calculate_error_percentage(v, real_lattice_constant) for k, v in lattice_combined.items()
     }
-
-    # Create output DataFrames
-    peak_df = pd.DataFrame(
-        {
-            "Angle": mean_angles,
-            "Amplitude": amplitudes,
-            "Sigma": sigmas,
-            "Gamma": gammas,
-        }
-    )
 
     summary_df = pd.DataFrame(
         {

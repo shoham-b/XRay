@@ -58,7 +58,7 @@ def _create_single_material_plot(
 
     x_data = df["Angle"].values
     y_data = df["Intensity"].values
-    y_error = np.sqrt(y_data)
+    np.sqrt(y_data)
 
     # 1. Raw data
     fig.add_trace(
@@ -221,7 +221,7 @@ def _create_single_material_plot(
 
         # Combined fit line only (no additional dots)
         combined_x_values = fit_plot_data["combined_x_values"]
-        combined_y_values = fit_plot_data["combined_y_values"]
+        fit_plot_data["combined_y_values"]
         combined_slope = fit_plot_data["combined_slope"]
         combined_d_fit = fit_plot_data["combined_d_fit"]
 
@@ -399,7 +399,7 @@ def create_multi_material_report(
                         'margin': {{l: 60, r: 20, t: 20, b: 60}},
                         'height': 1000
                     }});
-                    
+
                     // Force a redraw to ensure proper rendering
                     setTimeout(function() {{
                         Plotly.Plots.resize(plotDiv);

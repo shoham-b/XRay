@@ -131,7 +131,7 @@ def main():
     valid_fits.sort(key=lambda x: x[2])  # Sort by angle
 
     # Get the peak indices for visualization
-    final_model_peaks = np.array([i for i, _, _ in valid_fits])
+    np.array([i for i, _, _ in valid_fits])
 
     console.print(f"Found {len(valid_fits)} valid peaks for {material_name}")
 

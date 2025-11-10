@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
@@ -6,6 +8,7 @@ from scipy.special import wofz
 
 from xray.cache import cached
 
+log = logging.getLogger(__name__)
 
 def find_all_peaks_naive(
     df: pd.DataFrame,
@@ -135,22 +138,6 @@ def find_all_peaks_fitting(
 
     for i, idx in enumerate(sorted_initial_peaks_indices):
         try:
-            left = max(0, idx - window)
-            right = min(len(df), idx + window + 1)
-            x_window, y_window = angles[left:right], intensities[left:right]  # Use original intensities
-
-            # Better initial guesses
-            max_intensity_in_window_idx = np.argmax(y_window)
-            mean_guess = x_window[max_intensity_in_window_idx]
-            amplitude_guess = max(
-                0, y_window[max_intensity_in_window_idx] - bremsstrahlung_bg(mean_guess, *bg_params)
-            )
-
-            sigma_guess, gamma_guess = 0.1, 0.1
-
-            span = max(x_window.max() - x_window.min(), 1e-6)
-            guess = [amplitude_guess, mean_guess, sigma_guess, gamma_guess]
-
             # Set bounds for the mean based on neighboring peaks
             if i > 0:
                 prev_peak_angle = angles[sorted_initial_peaks_indices[i - 1]]
@@ -164,18 +151,36 @@ def find_all_peaks_fitting(
             else:
                 upper_bound_mean = np.inf
 
-            # The bounds for the mean should also be within the fitting window
-            lower_bound_mean = max(lower_bound_mean, x_window.min())
-            upper_bound_mean = min(upper_bound_mean, x_window.max())
+            # Define the fitting window based on these bounds
+            window_indices = np.where((angles >= lower_bound_mean) & (angles <= upper_bound_mean))[0]
+            x_window = angles[window_indices]
+            y_window = intensities[window_indices]
 
-            lower = [0.0, lower_bound_mean, 1e-4, 1e-4]
-            upper = [max_intensity * 2.0, upper_bound_mean, span, span]
+            if len(x_window) == 0:
+                raise ValueError("Window is empty after applying bounds.")
+
+            # Better initial guesses
+            max_intensity_in_window_idx = np.argmax(y_window)
+            mean_guess = x_window[max_intensity_in_window_idx]
+            amplitude_guess = max(
+                0, y_window[max_intensity_in_window_idx] - bremsstrahlung_bg(mean_guess, *bg_params)
+            )
+
+            sigma_guess, gamma_guess = 0.1, 0.1
+
+            span = max(x_window.max() - x_window.min(), 1e-6)
+            guess = [amplitude_guess, mean_guess, sigma_guess, gamma_guess]
+
+            # The bounds for curve_fit should be the same as the window bounds for the mean
+            lower = [0.0, x_window.min(), 1e-4, 1e-4]
+            upper = [max_intensity * 2.0, x_window.max(), span, span]
 
             popt, _ = curve_fit(
                 voigt_with_bg, x_window, y_window, p0=guess, bounds=(lower, upper), maxfev=20000
             )
             results.append((idx, popt, popt[1]))
-        except Exception:
+        except Exception as e:
+            print(f"Failed to fit Voigt profile for peak {idx} reason: {e}")
             results.append((idx, None, angles[idx]))
 
     # Re-sort results to match the original order of initial_peaks

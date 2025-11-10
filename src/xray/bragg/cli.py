@@ -25,13 +25,13 @@ bragg_cli = typer.Typer(
 @bragg_cli.callback()
 def bragg_analysis(
         input_files: Annotated[
-            list[Path],
+            list[Path] | None,
             typer.Option(
                 "--input",
                 help="Input data file(s) (CSV format) relative to the data directory.",
                 envvar="BRAGG_INPUT_FILES",
             ),
-        ] = [Path("bragg/NaCl.csv"), Path("bragg/LiF.csv")],
+        ] = None,
         wavelength: Annotated[
             float,
             typer.Option(
@@ -87,21 +87,21 @@ def bragg_analysis(
             ),
         ] = 5.64,
         expected_nacl_angles: Annotated[
-            list[float],
+            list[float] | None,
             typer.Option(
                 "--expected-nacl-angles",
                 help="Expected 2θ angles for NaCl peaks (e.g., 7.7 8.5 14.1).",
                 envvar="BRAGG_EXPECTED_NACL_ANGLES",
             ),
-        ] = [7.7, 8.5, 14.1, 15.9, 20.7, 23.3, 27.7, 31.4],
+        ] = None,
         expected_lif_angles: Annotated[
-            list[float],
+            list[float] | None,
             typer.Option(
                 "--expected-lif-angles",
                 help="Expected 2θ angles for LiF peaks (e.g., 11.1 12.3 20.4).",
                 envvar="BRAGG_EXPECTED_LIF_ANGLES",
             ),
-        ] = [11.1, 12.3, 20.4, 22.8],
+        ] = None,
         use_predefined_angles: Annotated[
             bool,
             typer.Option(
@@ -120,6 +120,12 @@ def bragg_analysis(
         ] = True,
 ) -> int:
     """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
+    if expected_lif_angles is None:
+        expected_lif_angles = [11.1, 12.3, 20.4, 22.8]
+    if expected_nacl_angles is None:
+        expected_nacl_angles = [7.7, 8.5, 14.1, 15.9, 20.7, 23.3, 27.7, 31.4]
+    if input_files is None:
+        input_files = [Path("bragg/NaCl.csv"), Path("bragg/LiF.csv")]
     console = Console()
     if clear_cache:
         from xray.cache import cache
@@ -164,6 +170,7 @@ def bragg_analysis(
             analysis_results = perform_fitting_with_predefined_peaks(
                 df, predefined_angles, analysis_params, console
             )
+            current_predefined_angles = analysis_results["predefined_angles"]
 
         elif use_predefined_angles:
             console.print(f"Using predefined angles for {material_name}...")
@@ -188,7 +195,7 @@ def bragg_analysis(
                 # Find the closest index in the data
                 closest_idx = np.argmin(np.abs(angles_array - predefined_angle))
                 actual_angle = angles_array[closest_idx]
-                actual_intensity = intensities_array[closest_idx]
+                intensities_array[closest_idx]
 
                 # Create tuple in format: (idx, None, angle)
                 # None is used instead of popt since there's no Voigt fitting
@@ -200,12 +207,14 @@ def bragg_analysis(
                 "valid_fits": valid_fits,
                 "bg_params": None,
             }
+            current_predefined_angles = predefined_angles
 
         else:
             analysis_results = perform_peak_analysis(df, analysis_params, console)
+            current_predefined_angles = [] # No predefined angles for this case
 
         peak_df, summary_df, fit_plot_data = generate_summary_tables(
-            df, analysis_results, wavelength, real_lattice_constant
+            df, analysis_results, wavelength, real_lattice_constant, current_predefined_angles
         )
 
         analysis_data = {
