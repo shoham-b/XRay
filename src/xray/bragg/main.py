@@ -276,12 +276,15 @@ def generate_summary_tables(
         "ka_x_values": ka_sin_theta,
         "ka_y_values": ka_n_values,
         "ka_slope": ka_slope,
+        "ka_d_fit": d_fit_ka,
         "kb_x_values": kb_sin_theta,
         "kb_y_values": kb_n_values,
         "kb_slope": kb_slope,
+        "kb_d_fit": d_fit_kb,
         "combined_x_values": combined_sin_theta,
         "combined_y_values": combined_n_values,
         "combined_slope": combined_slope,
+        "combined_d_fit": d_fit_combined,
     }
 
     return peak_df, summary_df, fit_plot_data

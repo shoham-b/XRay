@@ -45,7 +45,7 @@ def _create_single_material_plot(
     row_heights = [0.7, 0.3]
     subplot_titles = [
         f"X-Ray Diffraction Spectrum - {material_name}",
-        "d-spacing Linear Fits (n vs sinθ)",
+        "d-spacing Linear Fits (n vs sinθ/λ)",
     ]
 
     fig = make_subplots(
@@ -147,6 +147,7 @@ def _create_single_material_plot(
         ka_x_values = fit_plot_data["ka_x_values"]
         ka_y_values = fit_plot_data["ka_y_values"]
         ka_slope = fit_plot_data["ka_slope"]
+        ka_d_fit = fit_plot_data["ka_d_fit"]
 
         if ka_x_values.size > 0:  # Add check for empty array
             fig.add_trace(
@@ -154,7 +155,7 @@ def _create_single_material_plot(
                     x=ka_x_values,
                     y=ka_y_values,
                     mode="markers",
-                    name="K&alpha; Data",
+                    name="Kα Data",
                     marker=dict(color="blue"),
                 ),
                 row=2,
@@ -166,24 +167,25 @@ def _create_single_material_plot(
                     x=ka_x_values,
                     y=ka_fit_line_y,
                     mode="lines",
-                    name=f"K&alpha; Fit (slope={ka_slope:.4f})",
+                    name=f"Kα Fit (slope=2d={ka_slope:.4f}, d={ka_d_fit:.4f} Å)",
                     line=dict(color="blue", dash="dash"),
                 ),
                 row=2,
                 col=1,
             )
             fig.update_xaxes(
-                title_text="sin(θ)",
+                title_text="sin(θ)/λ (Å⁻¹)",
                 range=[ka_x_values.min() - 0.01, ka_x_values.max() + 0.01],
                 row=2,
                 col=1,
             )
-            fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
+            fig.update_yaxes(title_text="Peak Order (n) (dimensionless)", row=2, col=1)
 
         # K-beta fit
         kb_x_values = fit_plot_data["kb_x_values"]
         kb_y_values = fit_plot_data["kb_y_values"]
         kb_slope = fit_plot_data["kb_slope"]
+        kb_d_fit = fit_plot_data["kb_d_fit"]
 
         if kb_x_values.size > 0:  # Add check for empty array
             fig.add_trace(
@@ -191,7 +193,7 @@ def _create_single_material_plot(
                     x=kb_x_values,
                     y=kb_y_values,
                     mode="markers",
-                    name="K&beta; Data",
+                    name="Kβ Data",
                     marker=dict(color="green"),
                 ),
                 row=2,
@@ -203,24 +205,25 @@ def _create_single_material_plot(
                     x=kb_x_values,
                     y=kb_fit_line_y,
                     mode="lines",
-                    name=f"K&beta; Fit (slope={kb_slope:.4f})",
+                    name=f"Kβ Fit (slope=2d={kb_slope:.4f}, d={kb_d_fit:.4f} Å)",
                     line=dict(color="green", dash="dash"),
                 ),
                 row=2,
                 col=1,
             )
             fig.update_xaxes(
-                title_text="sin(θ)",
+                title_text="sin(θ)/λ (Å⁻¹)",
                 range=[kb_x_values.min() - 0.01, kb_x_values.max() + 0.01],
                 row=2,
                 col=1,
             )
-            fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
+            fig.update_yaxes(title_text="Peak Order (n) (dimensionless)", row=2, col=1)
 
         # Combined fit line only (no additional dots)
         combined_x_values = fit_plot_data["combined_x_values"]
         combined_y_values = fit_plot_data["combined_y_values"]
         combined_slope = fit_plot_data["combined_slope"]
+        combined_d_fit = fit_plot_data["combined_d_fit"]
 
         if combined_x_values.size > 0:  # Add check for empty array
             combined_fit_line_y = combined_slope * combined_x_values
@@ -229,7 +232,7 @@ def _create_single_material_plot(
                     x=combined_x_values,
                     y=combined_fit_line_y,
                     mode="lines",
-                    name=f"Combined Fit (slope={combined_slope:.4f})",
+                    name=f"Combined Fit (slope=2d={combined_slope:.4f}, d={combined_d_fit:.4f} Å)",
                     line=dict(color="purple", dash="dash"),
                 ),
                 row=2,
@@ -238,12 +241,12 @@ def _create_single_material_plot(
             all_x_values_combined = np.concatenate((ka_x_values, kb_x_values))
             if all_x_values_combined.size > 0:  # Add check for empty array before min/max
                 fig.update_xaxes(
-                    title_text="sin(θ)",
+                    title_text="sin(θ)/λ (Å⁻¹)",
                     range=[all_x_values_combined.min() - 0.01, all_x_values_combined.max() + 0.01],
                     row=2,
                     col=1,
                 )
-            fig.update_yaxes(title_text="Peak Order (n)", row=2, col=1)
+            fig.update_yaxes(title_text="Peak Order (n) (dimensionless)", row=2, col=1)
 
     fig.update_layout(
         height=1000,
