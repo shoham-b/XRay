@@ -6,16 +6,15 @@ from rich.console import Console
 
 from xray.bragg.calculations import (
     calculate_cubic_lattice_constants,
-    calculate_d_spacing,
     calculate_error_percentage,
     perform_bragg_fit_core,
     perform_combined_fit,
-    perform_linear_fit,
 )
 from xray.bragg.peak_finding import (
     find_all_peaks_fitting,
     find_all_peaks_naive,
     fit_global_background,
+    fit_spectrum_with_predefined_peaks,
 )
 from xray.bragg.peak_pairing import identify_ka_kb_peaks
 
@@ -69,6 +68,78 @@ def perform_peak_analysis(df: pd.DataFrame, params: dict, console: Console) -> d
     }
 
 
+def perform_fitting_with_predefined_peaks(
+    df: pd.DataFrame, predefined_angles: list[float], params: dict, console: Console
+) -> dict:
+    """Performs peak fitting using predefined angles as initial guesses."""
+    console.print("Performing peak fitting with predefined angles...")
+
+    # Convert predefined angles to indices
+    angles_array = df["Angle"].values
+    initial_peaks = [np.argmin(np.abs(angles_array - angle)) for angle in predefined_angles]
+    initial_peaks = np.array(initial_peaks)
+
+    # Empty properties dict as we are not running naive peak finding
+    initial_peaks_properties = {}
+
+    bg_params = fit_global_background(df, initial_peaks, window=params["window"])
+
+    if bg_params is None:
+        console.print("[bold red]Failed to fit global background.[/bold red]")
+        return {}
+
+    valid_fits = find_all_peaks_fitting(
+        df, initial_peaks, initial_peaks_properties, bg_params, window=params["window"]
+    )
+
+    console.print("Peak fitting completed.")
+
+    return {
+        "initial_peaks_idx": initial_peaks,
+        "initial_peaks_properties": initial_peaks_properties,
+        "valid_fits": valid_fits,
+        "bg_params": bg_params,
+    }
+
+
+def perform_global_fit_analysis(
+    df: pd.DataFrame, predefined_angles: list[float], console: Console
+) -> dict:
+    """Performs a global fit analysis on the data using predefined peaks."""
+    console.print("Performing global fit analysis...")
+
+    popt, _ = fit_spectrum_with_predefined_peaks(df, predefined_angles)
+
+    if popt is None:
+        console.print("[bold red]Global fit failed.[/bold red]")
+        return {}
+
+    bg_params = popt[0:3]
+    voigt_params = popt[3:]
+    num_peaks = len(predefined_angles)
+
+    valid_fits = []
+    initial_peaks_idx = []
+    angles = df["Angle"].values
+
+    for i in range(num_peaks):
+        popt_peak = voigt_params[i * 4 : (i + 1) * 4]
+        mean_angle = popt_peak[1]
+        closest_idx = np.argmin(np.abs(angles - mean_angle))
+
+        valid_fits.append((closest_idx, popt_peak, mean_angle))
+        initial_peaks_idx.append(closest_idx)
+
+    console.print("Global fit analysis completed.")
+
+    return {
+        "initial_peaks_idx": initial_peaks_idx,
+        "initial_peaks_properties": {},
+        "valid_fits": valid_fits,
+        "bg_params": bg_params,
+    }
+
+
 def _extract_fit_data(valid_fits: list) -> list[tuple]:
     """Extract fit data from valid fits results."""
     fit_data = []
@@ -98,9 +169,11 @@ def _perform_bragg_fit(
     """Perform Bragg fit for given peak angles and single wavelength."""
     if not peak_angles:
         return np.array([]), np.array([]), np.nan, np.nan
-    
+
     # Prepare data for fit: single wavelength for all peaks
-    data_with_wavelength = [(angle, wavelength, i) for i, angle in enumerate(np.sort(peak_angles), start=1)]
+    data_with_wavelength = [
+        (angle, wavelength, i) for i, angle in enumerate(np.sort(peak_angles), start=1)
+    ]
     return perform_bragg_fit_core(data_with_wavelength)
 
 
@@ -109,13 +182,13 @@ def generate_summary_tables(
 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Generates summary tables from the analysis results.
-    
+
     1. Identifies K-alpha and K-beta pairs.
     2. Performs separate linear fits for K-alpha and K-beta peaks to find d-spacing.
     3. Performs a combined linear fit to find d-spacing.
     4. Calculates potential lattice constants for cubic systems.
     5. Calculates error percentages compared to known values.
-    
+
     Returns:
         Tuple of (peak_df, summary_df, fit_plot_data)
     """
@@ -141,7 +214,7 @@ def generate_summary_tables(
     # Perform fits for K-alpha, K-beta, and combined
     ka_sin_theta, ka_n_values, ka_slope, d_fit_ka = _perform_bragg_fit(ka_peaks_angles, lambda_a)
     kb_sin_theta, kb_n_values, kb_slope, d_fit_kb = _perform_bragg_fit(kb_peaks_angles, lambda_b)
-    
+
     # Combined fit - uses both wavelengths appropriately for each point
     combined_sin_theta, combined_n_values, combined_slope, d_fit_combined = perform_combined_fit(
         combined_data, lambda_a, lambda_b
@@ -154,16 +227,13 @@ def generate_summary_tables(
 
     # Calculate errors
     errors_ka = {
-        k: calculate_error_percentage(v, real_lattice_constant)
-        for k, v in lattice_ka.items()
+        k: calculate_error_percentage(v, real_lattice_constant) for k, v in lattice_ka.items()
     }
     errors_kb = {
-        k: calculate_error_percentage(v, real_lattice_constant)
-        for k, v in lattice_kb.items()
+        k: calculate_error_percentage(v, real_lattice_constant) for k, v in lattice_kb.items()
     }
     errors_combined = {
-        k: calculate_error_percentage(v, real_lattice_constant)
-        for k, v in lattice_combined.items()
+        k: calculate_error_percentage(v, real_lattice_constant) for k, v in lattice_combined.items()
     }
 
     # Create output DataFrames
@@ -176,29 +246,31 @@ def generate_summary_tables(
         }
     )
 
-    summary_df = pd.DataFrame({
-        "inferred_ka_d_spacing (Angstrom)": [d_fit_ka],
-        "inferred_kb_d_spacing (Angstrom)": [d_fit_kb],
-        "inferred_combined_d_spacing (Angstrom)": [d_fit_combined],
-        "a_SC_ka (Angstrom)": [lattice_ka["sc"]],
-        "a_BCC_ka (Angstrom)": [lattice_ka["bcc"]],
-        "a_FCC_ka (Angstrom)": [lattice_ka["fcc"]],
-        "error_SC_ka (%)": [errors_ka["sc"]],
-        "error_BCC_ka (%)": [errors_ka["bcc"]],
-        "error_FCC_ka (%)": [errors_ka["fcc"]],
-        "a_SC_kb (Angstrom)": [lattice_kb["sc"]],
-        "a_BCC_kb (Angstrom)": [lattice_kb["bcc"]],
-        "a_FCC_kb (Angstrom)": [lattice_kb["fcc"]],
-        "error_SC_kb (%)": [errors_kb["sc"]],
-        "error_BCC_kb (%)": [errors_kb["bcc"]],
-        "error_FCC_kb (%)": [errors_kb["fcc"]],
-        "a_SC_combined (Angstrom)": [lattice_combined["sc"]],
-        "a_BCC_combined (Angstrom)": [lattice_combined["bcc"]],
-        "a_FCC_combined (Angstrom)": [lattice_combined["fcc"]],
-        "error_SC_combined (%)": [errors_combined["sc"]],
-        "error_BCC_combined (%)": [errors_combined["bcc"]],
-        "error_FCC_combined (%)": [errors_combined["fcc"]],
-    })
+    summary_df = pd.DataFrame(
+        {
+            "inferred_ka_d_spacing (Angstrom)": [d_fit_ka],
+            "inferred_kb_d_spacing (Angstrom)": [d_fit_kb],
+            "inferred_combined_d_spacing (Angstrom)": [d_fit_combined],
+            "a_SC_ka (Angstrom)": [lattice_ka["sc"]],
+            "a_BCC_ka (Angstrom)": [lattice_ka["bcc"]],
+            "a_FCC_ka (Angstrom)": [lattice_ka["fcc"]],
+            "error_SC_ka (%)": [errors_ka["sc"]],
+            "error_BCC_ka (%)": [errors_ka["bcc"]],
+            "error_FCC_ka (%)": [errors_ka["fcc"]],
+            "a_SC_kb (Angstrom)": [lattice_kb["sc"]],
+            "a_BCC_kb (Angstrom)": [lattice_kb["bcc"]],
+            "a_FCC_kb (Angstrom)": [lattice_kb["fcc"]],
+            "error_SC_kb (%)": [errors_kb["sc"]],
+            "error_BCC_kb (%)": [errors_kb["bcc"]],
+            "error_FCC_kb (%)": [errors_kb["fcc"]],
+            "a_SC_combined (Angstrom)": [lattice_combined["sc"]],
+            "a_BCC_combined (Angstrom)": [lattice_combined["bcc"]],
+            "a_FCC_combined (Angstrom)": [lattice_combined["fcc"]],
+            "error_SC_combined (%)": [errors_combined["sc"]],
+            "error_BCC_combined (%)": [errors_combined["bcc"]],
+            "error_FCC_combined (%)": [errors_combined["fcc"]],
+        }
+    )
 
     fit_plot_data = {
         "ka_x_values": ka_sin_theta,
@@ -213,5 +285,3 @@ def generate_summary_tables(
     }
 
     return peak_df, summary_df, fit_plot_data
-
-

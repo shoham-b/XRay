@@ -73,7 +73,7 @@ def _create_single_material_plot(
         col=1,
     )
 
-    # 2. Initial peaks (these are just markers, no error bars)
+    # 2. Initial Peaks
     initial_peaks = np.array(analysis_results.get("initial_peaks_idx", []))
     if initial_peaks.size > 0:
         fig.add_trace(
@@ -90,32 +90,6 @@ def _create_single_material_plot(
 
     # Get background parameters first, as they are needed for peak y-values
     bg_params = analysis_results.get("bg_params")
-
-    # 3. Fitted Peaks with error bars (new trace)
-    if not peak_table.empty and bg_params is not None:
-        # Calculate y-position of fitted peaks on top of the background
-        peak_y = peak_table["Amplitude"] + bremsstrahlung_bg(peak_table["Angle"].values, *bg_params)
-        fig.add_trace(
-            go.Scatter(
-                x=peak_table["Angle"],
-                y=peak_y,
-                mode="markers",
-                name="Fitted Peaks",
-                error_x=dict(
-                    type="data",
-                    array=peak_table["Sigma"],
-                    visible=True,
-                    thickness=1,
-                    width=2,
-                    color="blue",
-                ),
-                marker=dict(
-                    color="blue", size=10, symbol="circle", line=dict(width=1, color="black")
-                ),
-            ),
-            row=1,
-            col=1,
-        )
 
     # 4. Global background and total fit
     if bg_params is not None:
@@ -174,7 +148,7 @@ def _create_single_material_plot(
         ka_y_values = fit_plot_data["ka_y_values"]
         ka_slope = fit_plot_data["ka_slope"]
 
-        if ka_x_values.size > 0: # Add check for empty array
+        if ka_x_values.size > 0:  # Add check for empty array
             fig.add_trace(
                 go.Scatter(
                     x=ka_x_values,
@@ -211,7 +185,7 @@ def _create_single_material_plot(
         kb_y_values = fit_plot_data["kb_y_values"]
         kb_slope = fit_plot_data["kb_slope"]
 
-        if kb_x_values.size > 0: # Add check for empty array
+        if kb_x_values.size > 0:  # Add check for empty array
             fig.add_trace(
                 go.Scatter(
                     x=kb_x_values,
@@ -248,7 +222,7 @@ def _create_single_material_plot(
         combined_y_values = fit_plot_data["combined_y_values"]
         combined_slope = fit_plot_data["combined_slope"]
 
-        if combined_x_values.size > 0: # Add check for empty array
+        if combined_x_values.size > 0:  # Add check for empty array
             combined_fit_line_y = combined_slope * combined_x_values
             fig.add_trace(
                 go.Scatter(
@@ -262,7 +236,7 @@ def _create_single_material_plot(
                 col=1,
             )
             all_x_values_combined = np.concatenate((ka_x_values, kb_x_values))
-            if all_x_values_combined.size > 0: # Add check for empty array before min/max
+            if all_x_values_combined.size > 0:  # Add check for empty array before min/max
                 fig.update_xaxes(
                     title_text="sin(θ)",
                     range=[all_x_values_combined.min() - 0.01, all_x_values_combined.max() + 0.01],
@@ -309,7 +283,13 @@ def create_multi_material_report(
         }
 
         fig = _create_single_material_plot(
-            df, analysis_results, peak_table, summary_table, material_name, fit_plot_data, d_values
+            df,
+            analysis_results,
+            peak_table,
+            summary_table,
+            material_name,
+            fit_plot_data,
+            d_values,
         )
 
         plot_html = fig.to_html(full_html=False, include_plotlyjs=include_plotlyjs)

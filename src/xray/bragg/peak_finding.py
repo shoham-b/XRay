@@ -50,8 +50,9 @@ def voigt(x, amplitude, mean, sigma, gamma):
 
 def bremsstrahlung_bg(x, bg_amp, x_offset, bg_scale):
     """A Maxwell-Boltzmann-like model for the Bremsstrahlung background."""
+    x = np.asanyarray(x)
     x_shifted = x - x_offset
-    x_shifted[x_shifted < 0] = 0
+    x_shifted = np.where(x_shifted < 0, 0, x_shifted)
     return bg_amp * x_shifted * np.exp(-x_shifted / (bg_scale + 1e-9))
 
 
@@ -101,12 +102,10 @@ def find_all_peaks_fitting(
     bg_params: tuple,
     window: int = 20,
 ) -> list:
-    """For each pair of initial peaks, fit a sum of two Voigt profiles with tight bounds."""
+    """For each initial peak, fit a Voigt profile with tight bounds."""
     intensities = df["Intensity"].values.astype(float)
     angles = df["Angle"].values.astype(float)
     max_intensity = intensities.max() if intensities.size else 0.0
-    background = bremsstrahlung_bg(angles, *bg_params)
-    y_subtracted = intensities - background
 
     results = []
 
@@ -115,106 +114,111 @@ def find_all_peaks_fitting(
         for i, peak in enumerate(initial_peaks):
             peak_props_map[peak][key] = values[i]
 
-    sorted_indices = sorted(initial_peaks)
+    # Define the model to fit for each peak
+    def voigt_with_bg(x, amplitude, mean, sigma, gamma):
+        return voigt(x, amplitude, mean, sigma, gamma) + bremsstrahlung_bg(x, *bg_params)
 
-    for i in range(0, len(sorted_indices), 2):
-        idx1 = sorted_indices[i]
-        if i + 1 >= len(sorted_indices):
-            # Handle lone peak with a single Voigt fit
-            try:
-                left = max(0, idx1 - window)
-                right = min(len(df), idx1 + window + 1)
-                x_window, y_window = angles[left:right], y_subtracted[left:right]
-
-                mean_guess = angles[idx1]
-                amplitude_guess = y_window[x_window == angles[idx1]][0]
-                width_guess = peak_props_map[idx1].get(
-                    "widths", (x_window.max() - x_window.min()) / 2
-                )
-                width_guess_angle = width_guess * np.mean(np.diff(angles))
-                sigma_guess, gamma_guess = width_guess_angle / 5, width_guess_angle / 10
-
-                span = max(x_window.max() - x_window.min(), 1e-6)
-                guess = [amplitude_guess, mean_guess, sigma_guess, gamma_guess]
-                lower = [0.0, mean_guess - span / 4, span / 200, span / 200]
-                upper = [max_intensity * 2.0, mean_guess + span / 4, span / 2, span / 2]
-
-                popt, _ = curve_fit(
-                    voigt, x_window, y_window, p0=guess, bounds=(lower, upper), maxfev=20000
-                )
-                results.append((idx1, popt, popt[1]))
-            except Exception:
-                results.append((idx1, None, angles[idx1]))
-            continue
-
-        idx2 = sorted_indices[i + 1]
-
-        left = max(0, idx1 - window)
-        right = min(len(df), idx2 + window + 1)
-        x_window, y_window = angles[left:right], y_subtracted[left:right]
-
-        if len(x_window) < 8:
-            results.append((idx1, None, angles[idx1]))
-            results.append((idx2, None, angles[idx2]))
-            continue
-
+    for idx in initial_peaks:
         try:
-            mean1_guess = angles[idx1]
-            amp1_guess = y_window[x_window == angles[idx1]][0]
+            left = max(0, idx - window)
+            right = min(len(df), idx + window + 1)
+            x_window, y_window = angles[left:right], intensities[left:right]  # Use original intensities
 
-            mean2_guess = angles[idx2]
-            amp2_guess = y_window[x_window == angles[idx2]][0]
-
-            span = max(x_window.max() - x_window.min(), 1e-6)
-            sigma_guess, gamma_guess = span / 10, span / 20
-
-            guess = [
-                amp1_guess,
-                mean1_guess,
-                sigma_guess,
-                gamma_guess,
-                amp2_guess,
-                mean2_guess,
-                sigma_guess,
-                gamma_guess,
-            ]
-
-            lower = [
-                0.0,
-                mean1_guess - span / 4,
-                span / 200,
-                span / 200,
-                0.0,
-                mean2_guess - span / 4,
-                span / 200,
-                span / 200,
-            ]
-            upper = [
-                max_intensity * 2,
-                mean1_guess + span / 4,
-                span / 2,
-                span / 2,
-                max_intensity * 2,
-                mean2_guess + span / 4,
-                span / 2,
-                span / 2,
-            ]
-
-            popt, _ = curve_fit(
-                two_voigts, x_window, y_window, p0=guess, bounds=(lower, upper), maxfev=50000
+            # Better initial guesses
+            max_intensity_in_window_idx = np.argmax(y_window)
+            mean_guess = x_window[max_intensity_in_window_idx]
+            amplitude_guess = max(
+                0, y_window[max_intensity_in_window_idx] - bremsstrahlung_bg(mean_guess, *bg_params)
             )
 
-            popt1 = popt[0:4]
-            popt2 = popt[4:8]
+            sigma_guess, gamma_guess = 0.1, 0.1
 
-            results.append((idx1, popt1, popt1[1]))
-            results.append((idx2, popt2, popt2[1]))
+            span = max(x_window.max() - x_window.min(), 1e-6)
+            guess = [amplitude_guess, mean_guess, sigma_guess, gamma_guess]
+            lower = [0.0, mean_guess - span / 2, 1e-4, 1e-4]
+            upper = [max_intensity * 2.0, mean_guess + span / 2, span, span]
 
+            popt, _ = curve_fit(
+                voigt_with_bg, x_window, y_window, p0=guess, bounds=(lower, upper), maxfev=20000
+            )
+            results.append((idx, popt, popt[1]))
         except Exception:
-            results.append((idx1, None, angles[idx1]))
-            results.append((idx2, None, angles[idx2]))
+            results.append((idx, None, angles[idx]))
 
     return results
+
+
+def fit_spectrum_with_predefined_peaks(
+    df: pd.DataFrame, predefined_peaks: list[float], **kwargs
+) -> tuple | None:
+    """
+    Fits a composite model of background and Voigt peaks to the spectrum.
+
+    Args:
+        df: DataFrame with 'Angle' and 'Intensity' columns.
+        predefined_peaks: A list of angles for the Voigt peaks.
+
+    Returns:
+        A tuple of (optimal_parameters, covariance_matrix).
+    """
+    x_data = df["Angle"].values
+    y_data = df["Intensity"].values
+    num_peaks = len(predefined_peaks)
+
+    # 1. Define the composite model function dynamically
+    def composite_model(x, *params):
+        bg_amp, x_offset, bg_scale = params[0:3]
+        model = bremsstrahlung_bg(x, bg_amp, x_offset, bg_scale)
+
+        voigt_params = params[3:]
+        for i in range(num_peaks):
+            amp, mean, sigma, gamma = voigt_params[i * 4 : (i + 1) * 4]
+            model += voigt(x, amp, mean, sigma, gamma)
+        return model
+
+    # 2. Generate initial parameter guesses
+    # Background guesses
+    bg_amp_guess = np.median(y_data)
+    x_offset_guess = x_data.min() - (x_data.max() - x_data.min()) * 0.1
+    bg_scale_guess = (x_data.max() - x_data.min()) * 2
+    initial_guesses = [bg_amp_guess, x_offset_guess, bg_scale_guess]
+
+    # Bounds for background
+    lower_bounds = [0.0, -np.inf, 1e-6]
+    upper_bounds = [y_data.max() * 2, x_data.max(), np.inf]
+
+    # Voigt guesses and bounds
+    for peak_angle in predefined_peaks:
+        closest_idx = np.argmin(np.abs(x_data - peak_angle))
+        amplitude_guess = y_data[closest_idx]
+        mean_guess = peak_angle
+
+        # Simple guess for sigma and gamma, can be improved
+        sigma_guess = 0.1
+        gamma_guess = 0.1
+
+        initial_guesses.extend([amplitude_guess, mean_guess, sigma_guess, gamma_guess])
+
+        # Bounds for Voigt parameters
+        angle_span = x_data.max() - x_data.min()
+        lower_bounds.extend([0.0, mean_guess - angle_span / 10, 1e-4, 1e-4])
+        upper_bounds.extend(
+            [y_data.max() * 2, mean_guess + angle_span / 10, angle_span / 5, angle_span / 5]
+        )
+
+    # 3. Fit the model
+    try:
+        popt, pcov = curve_fit(
+            composite_model,
+            x_data,
+            y_data,
+            p0=initial_guesses,
+            bounds=(lower_bounds, upper_bounds),
+            maxfev=100000,
+        )
+        return popt, pcov
+    except Exception:
+        return None, None
 
 
 def get_predefined_peaks(df: pd.DataFrame, predefined_angles: list[float]) -> list:

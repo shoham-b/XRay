@@ -30,7 +30,9 @@ def main():
     elif material_name == "LiF":
         real_lattice_constant = REAL_LATTICE_CONSTANT_LIF
     else:
-        console.print(f"[bold red]Warning: Unknown material '{material_name}'. Using default real lattice constant for NaCl.[/bold red]")
+        console.print(
+            f"[bold red]Warning: Unknown material '{material_name}'. Using default real lattice constant for NaCl.[/bold red]"
+        )
         real_lattice_constant = REAL_LATTICE_CONSTANT_NACL
 
     console.print(f"Processing {material_name} data...")
@@ -38,7 +40,7 @@ def main():
     # Read and verify the data
     console.print(f"Reading data from: {data_file}")
     df = pd.read_csv(data_file, sep=",", skipinitialspace=True)
-    df.columns = ["Angle", "Intensity"] # Explicitly set column names
+    df.columns = ["Angle", "Intensity"]  # Explicitly set column names
     console.print(f"Raw data shape: {df.shape}")
 
     # Ensure Angle and Intensity columns are numeric
@@ -80,9 +82,12 @@ def main():
     # First pass: Find prominent peaks
     console.print("\nStarting peak detection...")
     try:
-        initial_peaks, initial_peaks_properties = find_all_peaks_naive(df, threshold=params["threshold"],
-                                                                       distance=params["distance"],
-                                                                       prominence=params["prominence"])
+        initial_peaks, initial_peaks_properties = find_all_peaks_naive(
+            df,
+            threshold=params["threshold"],
+            distance=params["distance"],
+            prominence=params["prominence"],
+        )
         console.print(f"First pass found {len(initial_peaks)} peaks")
         if len(initial_peaks) > 0:
             angles = df["Angle"].iloc[initial_peaks].values

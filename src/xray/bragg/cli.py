@@ -10,6 +10,7 @@ from rich.console import Console
 from xray.bragg.main import (
     generate_summary_tables,
     load_and_prep_data,
+    perform_fitting_with_predefined_peaks,
     perform_peak_analysis,
 )
 from xray.bragg.viz import create_multi_material_report
@@ -108,6 +109,14 @@ def bragg_analysis(
                 help="Use predefined angles instead of performing peak analysis.",
                 envvar="BRAGG_USE_PREDEFINED_ANGLES",
             ),
+        ] = False,
+        fit_predefined_angles: Annotated[
+            bool,
+            typer.Option(
+                "--fit-predefined-angles",
+                help="Fit predefined angles instead of performing peak analysis.",
+                envvar="BRAGG_FIT_PREDEFINED_ANGLES",
+            ),
         ] = True,
 ) -> int:
     """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
@@ -132,7 +141,31 @@ def bragg_analysis(
 
         material_name = input_file.stem
 
-        if use_predefined_angles:
+        analysis_params = {
+            "threshold": threshold,
+            "distance": distance,
+            "prominence": prominence,
+            "window": window,
+        }
+
+        if fit_predefined_angles:
+            console.print(f"Fitting predefined angles for {material_name}...")
+            predefined_angles = []
+            if "NaCl" in material_name:
+                predefined_angles = expected_nacl_angles
+            elif "LiF" in material_name:
+                predefined_angles = expected_lif_angles
+            else:
+                console.print(
+                    f"[bold red]Warning: No predefined angles for {material_name}. Skipping.[/bold red]"
+                )
+                continue
+
+            analysis_results = perform_fitting_with_predefined_peaks(
+                df, predefined_angles, analysis_params, console
+            )
+
+        elif use_predefined_angles:
             console.print(f"Using predefined angles for {material_name}...")
 
             predefined_angles = []
@@ -141,7 +174,9 @@ def bragg_analysis(
             elif "LiF" in material_name:
                 predefined_angles = expected_lif_angles
             else:
-                console.print(f"[bold red]Warning: No predefined angles for {material_name}. Skipping.[/bold red]")
+                console.print(
+                    f"[bold red]Warning: No predefined angles for {material_name}. Skipping.[/bold red]"
+                )
                 continue
 
             # Find the closest indices to the predefined angles
@@ -167,12 +202,6 @@ def bragg_analysis(
             }
 
         else:
-            analysis_params = {
-                "threshold": threshold,
-                "distance": distance,
-                "prominence": prominence,
-                "window": window,
-            }
             analysis_results = perform_peak_analysis(df, analysis_params, console)
 
         peak_df, summary_df, fit_plot_data = generate_summary_tables(

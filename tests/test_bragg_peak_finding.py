@@ -1,3 +1,9 @@
+import numpy as np
+import pandas as pd
+
+from xray.bragg.peak_finding import get_predefined_peaks
+
+
 def test_get_predefined_peaks_format():
     # Create a dummy DataFrame
     angles_deg = np.linspace(0, 40, 400)
@@ -14,7 +20,7 @@ def test_get_predefined_peaks_format():
         assert len(item) == 3
         closest_idx, popt_tuple, angle_value = item
 
-        assert isinstance(closest_idx, (int, np.integer))
+        assert isinstance(closest_idx, int | np.integer)
         assert isinstance(popt_tuple, tuple)
         assert len(popt_tuple) == 4
         assert popt_tuple[0] is None
