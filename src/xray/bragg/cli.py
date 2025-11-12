@@ -22,6 +22,10 @@ bragg_cli = typer.Typer(
 )
 
 
+REAL_LATTICE_CONSTANT_NACL = 5.64  # Angstroms
+REAL_LATTICE_CONSTANT_LIF = 4.026  # Angstroms
+
+
 @bragg_cli.callback()
 def bragg_analysis(
         input_files: Annotated[
@@ -78,14 +82,7 @@ def bragg_analysis(
             bool,
             typer.Option("--clear-cache", help="Clear the cache before running."),
         ] = False,
-        real_lattice_constant: Annotated[
-            float,
-            typer.Option(
-                "--real-lattice-constant",
-                help="Real lattice constant in Angstroms for comparison (e.g., 5.64 for NaCl, 4.03 for LiF).",
-                envvar="BRAGG_REAL_LATTICE_CONSTANT",
-            ),
-        ] = 5.64,
+        # Remove real_lattice_constant from here, it will be set dynamically
         expected_nacl_angles: Annotated[
             list[float] | None,
             typer.Option(
@@ -146,6 +143,17 @@ def bragg_analysis(
             continue
 
         material_name = input_file.stem
+
+        # Determine real_lattice_constant based on material_name
+        if "NaCl" in material_name:
+            current_real_lattice_constant = REAL_LATTICE_CONSTANT_NACL
+        elif "LiF" in material_name:
+            current_real_lattice_constant = REAL_LATTICE_CONSTANT_LIF
+        else:
+            console.print(
+                f"[bold red]Warning: Unknown material '{material_name}'. Using default real lattice constant for NaCl.[/bold red]"
+            )
+            current_real_lattice_constant = REAL_LATTICE_CONSTANT_NACL
 
         analysis_params = {
             "threshold": threshold,
@@ -211,10 +219,10 @@ def bragg_analysis(
 
         else:
             analysis_results = perform_peak_analysis(df, analysis_params, console)
-            current_predefined_angles = [] # No predefined angles for this case
+            current_predefined_angles = []  # No predefined angles for this case
 
         peak_df, summary_df, fit_plot_data = generate_summary_tables(
-            df, analysis_results, wavelength, real_lattice_constant, current_predefined_angles
+            df, analysis_results, wavelength, current_real_lattice_constant, current_predefined_angles
         )
 
         analysis_data = {
@@ -224,7 +232,7 @@ def bragg_analysis(
             "peak_df": peak_df,
             "summary_df": summary_df,
             "fit_plot_data": fit_plot_data,
-            "real_lattice_constant": real_lattice_constant,
+            "real_lattice_constant": current_real_lattice_constant,
             "expected_nacl_angles": expected_nacl_angles,
             "expected_lif_angles": expected_lif_angles,
         }

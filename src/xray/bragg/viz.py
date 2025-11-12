@@ -8,7 +8,10 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from scipy.special import wofz
 
-from xray.bragg.calculations import calculate_error_percentage
+from xray.bragg.calculations import (
+    calculate_error_percentage,
+    format_value_with_error,
+)
 
 
 def _ensure_out_dir(out_dir: Path) -> None:
@@ -150,6 +153,7 @@ def _create_single_material_plot(
         ka_y_values = fit_plot_data["ka_y_values"]
         ka_slope = fit_plot_data["ka_slope"]
         ka_d_fit = fit_plot_data["ka_d_fit"]
+        ka_d_fit_error = fit_plot_data["ka_d_fit_error"]
 
         if ka_x_values.size > 0:  # Add check for empty array
             fig.add_trace(
@@ -164,12 +168,13 @@ def _create_single_material_plot(
                 col=1,
             )
             ka_fit_line_y = ka_slope * ka_x_values
+            d_val_ka, d_err_ka = format_value_with_error(ka_d_fit, ka_d_fit_error)
             fig.add_trace(
                 go.Scatter(
                     x=ka_x_values,
                     y=ka_fit_line_y,
                     mode="lines",
-                    name=f"Kα Fit (slope=2d={ka_slope:.4f}, d={ka_d_fit:.4f} Å)",
+                    name=f"Kα Fit (d={d_val_ka} ± {d_err_ka} Å)",
                     line=dict(color="blue", dash="dash"),
                 ),
                 row=2,
@@ -188,6 +193,7 @@ def _create_single_material_plot(
         kb_y_values = fit_plot_data["kb_y_values"]
         kb_slope = fit_plot_data["kb_slope"]
         kb_d_fit = fit_plot_data["kb_d_fit"]
+        kb_d_fit_error = fit_plot_data["kb_d_fit_error"]
 
         if kb_x_values.size > 0:  # Add check for empty array
             fig.add_trace(
@@ -202,12 +208,13 @@ def _create_single_material_plot(
                 col=1,
             )
             kb_fit_line_y = kb_slope * kb_x_values
+            d_val_kb, d_err_kb = format_value_with_error(kb_d_fit, kb_d_fit_error)
             fig.add_trace(
                 go.Scatter(
                     x=kb_x_values,
                     y=kb_fit_line_y,
                     mode="lines",
-                    name=f"Kβ Fit (slope=2d={kb_slope:.4f}, d={kb_d_fit:.4f} Å)",
+                    name=f"Kβ Fit (d={d_val_kb} ± {d_err_kb} Å)",
                     line=dict(color="green", dash="dash"),
                 ),
                 row=2,
@@ -226,15 +233,19 @@ def _create_single_material_plot(
         fit_plot_data["combined_y_values"]
         combined_slope = fit_plot_data["combined_slope"]
         combined_d_fit = fit_plot_data["combined_d_fit"]
+        combined_d_fit_error = fit_plot_data["combined_d_fit_error"]
 
         if combined_x_values.size > 0:  # Add check for empty array
             combined_fit_line_y = combined_slope * combined_x_values
+            d_val_combined, d_err_combined = format_value_with_error(
+                combined_d_fit, combined_d_fit_error
+            )
             fig.add_trace(
                 go.Scatter(
                     x=combined_x_values,
                     y=combined_fit_line_y,
                     mode="lines",
-                    name=f"Combined Fit (slope=2d={combined_slope:.4f}, d={combined_d_fit:.4f} Å)",
+                    name=f"Combined Fit (d={d_val_combined} ± {d_err_combined} Å)",
                     line=dict(color="purple", dash="dash"),
                 ),
                 row=2,
@@ -283,8 +294,13 @@ def create_multi_material_report(
         fit_plot_data = analysis_data["fit_plot_data"]
         d_values = {
             "ka": summary_table.loc[0, "inferred_ka_d_spacing (Angstrom)"],
+            "ka_error": summary_table.loc[0, "inferred_ka_d_spacing_error (Angstrom)"],
             "kb": summary_table.loc[0, "inferred_kb_d_spacing (Angstrom)"],
+            "kb_error": summary_table.loc[0, "inferred_kb_d_spacing_error (Angstrom)"],
             "combined": summary_table.loc[0, "inferred_combined_d_spacing (Angstrom)"],
+            "combined_error": summary_table.loc[
+                0, "inferred_combined_d_spacing_error (Angstrom)"
+            ],
         }
 
         fig = _create_single_material_plot(
@@ -313,17 +329,44 @@ def create_multi_material_report(
         error_kb = calculate_error_percentage(d_values["kb"], real_d_spacing)
         error_combined = calculate_error_percentage(d_values["combined"], real_d_spacing)
 
-        bragg_summary_html = f"""
+        d_val_ka, d_err_ka = format_value_with_error(d_values["ka"], d_values["ka_error"])
+        d_val_kb, d_err_kb = format_value_with_error(d_values["kb"], d_values["kb_error"])
+        d_val_combined, d_err_combined = format_value_with_error(
+            d_values["combined"], d_values["combined_error"]
+        )
+
+        bragg_summary_html = """
             <div class="mt-4">
-                <h4>Calculated d-spacing values (in Angstroms)</h4>
+                <h4>Calculated d-spacing values (&Aring;)</h4>
+                <p>
+                    For LiF, the comparison is made assuming the d-spacing of the (100) plane,
+                    so ($d_{{100}} = \\frac{{a}}{{\\sqrt{{1^2+0^2+0^2}}}} \\approx 4.026 &Aring;$),
+                    where $a$ is the lattice constant for LiF.
+                </p>
+                <p>
+                    For NaCl, an FCC lattice, the comparison is made assuming the d-spacing of the (111) plane,
+                    which is the smallest plane, so ($d_{{111}} = \\frac{{a}}{{\\sqrt{{1^2+1^2+1^2}}}} = \\frac{{a}}{{\\sqrt{{3}}}} \\approx 3.256 &Aring;$),
+                    where $a$ is the lattice constant for NaCl.
+                </p>
                 <p>Comparing with known d-spacing of <b>{real_d_spacing:.2f} &Aring;</b></p>
                 <ul>
-                    <li>K&alpha; Fit: <b>{d_values['ka']:.4f} &Aring;</b> (Error: {error_ka:.2f}%)</li>
-                    <li>K&beta; Fit: <b>{d_values['kb']:.4f} &Aring;</b> (Error: {error_kb:.2f}%)</li>
-                    <li>Combined Fit: <b>{d_values['combined']:.4f} &Aring;</b> (Error: {error_combined:.2f}%)</li>
+                    <li>K&alpha; Fit: <b>{d_val_ka} &pm; {d_err_ka} &Aring;</b> (Error: {error_ka:.2f}%)</li>
+                    <li>K&beta; Fit: <b>{d_val_kb} &pm; {d_err_kb} &Aring;</b> (Error: {error_kb:.2f}%)</li>
+                    <li>Combined Fit: <b>{d_val_combined} &pm; {d_err_combined} &Aring;</b> (Error: {error_combined:.2f}%)</li>
                 </ul>
             </div>
-        """
+        """.format(
+            real_d_spacing=real_d_spacing,
+            d_val_ka=d_val_ka,
+            d_err_ka=d_err_ka,
+            error_ka=error_ka,
+            d_val_kb=d_val_kb,
+            d_err_kb=d_err_kb,
+            error_kb=error_kb,
+            d_val_combined=d_val_combined,
+            d_err_combined=d_err_combined,
+            error_combined=error_combined,
+        )
 
         active_class = "active show" if i == 0 else ""
         fade_class = "" if i == 0 else "fade"
@@ -338,10 +381,6 @@ def create_multi_material_report(
                     <h4>Peak Table</h4>
                     {peak_table_html}
                 </div>
-                <div class="table-container">
-                    <h4>Summary Table</h4>
-                    {summary_table_html}
-                </div>
             </div>
         """)
 
@@ -354,6 +393,16 @@ def create_multi_material_report(
         <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
         <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+        <script>
+        MathJax = {{
+          tex: {{
+            inlineMath: [['\$', '\$']]
+          }}
+        }};
+        </script>
+        <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+        </script>
         <style>
             body {{ font-family: sans-serif; padding: 2rem; }}
             .table-container {{ margin-top: 2rem; }}

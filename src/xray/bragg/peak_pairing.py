@@ -18,7 +18,7 @@ def identify_ka_kb_peaks(
         where combined_data is list of (angle, 'ka' or 'kb', order_n) tuples
     """
     # Check if amplitudes are all NaN, indicating predefined angles were used
-    if peaks_data["amplitude"].isnull().all():
+    if peaks_data["Amplitude"].isnull().all():
         return _identify_predefined_peaks(valid_fits)
     else:
         return _identify_fitted_peaks(peaks_data)
@@ -65,18 +65,18 @@ def _identify_fitted_peaks(
         if i + 1 < len(peaks_data):
             # Process pair - both peaks are same diffraction order
             pair = peaks_data.iloc[i : i + 2]
-            ka_peak = pair.loc[pair["amplitude"].idxmax()]
-            kb_peak = pair.loc[pair["amplitude"].idxmin()]
+            ka_peak = pair.loc[pair["Amplitude"].idxmax()]
+            kb_peak = pair.loc[pair["Amplitude"].idxmin()]
 
-            ka_angles.append(ka_peak["angle"])
-            kb_angles.append(kb_peak["angle"])
+            ka_angles.append(ka_peak["Fitted Angle"])
+            kb_angles.append(kb_peak["Fitted Angle"])
 
-            combined_data.append((ka_peak["angle"], "ka", order_n))
-            combined_data.append((kb_peak["angle"], "kb", order_n))
+            combined_data.append((ka_peak["Fitted Angle"], "ka", order_n))
+            combined_data.append((kb_peak["Fitted Angle"], "kb", order_n))
         else:
             # Handle lone peak (assume it's K-alpha)
             lone_peak = peaks_data.iloc[i]
-            ka_angles.append(lone_peak["angle"])
-            combined_data.append((lone_peak["angle"], "ka", order_n))
+            ka_angles.append(lone_peak["Fitted Angle"])
+            combined_data.append((lone_peak["Fitted Angle"], "ka", order_n))
 
     return ka_angles, kb_angles, combined_data

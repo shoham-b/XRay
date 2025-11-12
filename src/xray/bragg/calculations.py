@@ -70,9 +70,34 @@ def calculate_error_percentage(inferred_value: float, real_value: float) -> floa
     return ((inferred_value - real_value) / real_value) * 100
 
 
+def format_value_with_error(value: float, error: float) -> tuple[str, str]:
+    """
+    Formats a value and its error to the correct number of significant digits.
+
+    Args:
+        value: The value to format.
+        error: The error of the value.
+
+    Returns:
+        A tuple of (formatted_value, formatted_error).
+    """
+    if np.isnan(error) or error == 0:
+        return f"{value:.4f}", "N/A"
+
+    # Determine the number of decimal places from the error
+    error_digits = -int(np.floor(np.log10(np.abs(error))))
+
+    # Format value and error
+    formatted_value = f"{value:.{error_digits}f}"
+    formatted_error = f"{error:.{error_digits}f}"
+
+    return formatted_value, formatted_error
+
+
+
 def perform_bragg_fit_core(
     data_with_wavelength: list[tuple[float, float, int]],
-) -> tuple[np.ndarray, np.ndarray, float, float]:
+) -> tuple[np.ndarray, np.ndarray, float, float, float]:
     """
     Core Bragg fit function: n = (2d/λ)*sin(θ)
 
@@ -80,10 +105,10 @@ def perform_bragg_fit_core(
         data_with_wavelength: List of (angle, wavelength, order_n) tuples
 
     Returns:
-        Tuple of (sin_theta_over_lambda, n_values, slope, d_spacing)
+        Tuple of (sin_theta_over_lambda, n_values, slope, d_spacing, d_spacing_error)
     """
     if not data_with_wavelength:
-        return np.array([]), np.array([]), np.nan, np.nan
+        return np.array([]), np.array([]), np.nan, np.nan, np.nan
 
     # Sort by angle
     sorted_data = sorted(data_with_wavelength, key=lambda x: x[0])
@@ -102,19 +127,22 @@ def perform_bragg_fit_core(
 
     # Perform fit: n = slope * (sin(θ)/λ), where slope = 2d
     if len(sin_theta_over_lambda_array) > 0:
-        popt, _ = curve_fit(linear_fit_through_origin, sin_theta_over_lambda_array, n_values)
+        popt, pcov = curve_fit(linear_fit_through_origin, sin_theta_over_lambda_array, n_values)
         slope = popt[0]  # slope = 2d
         d_spacing = slope / 2
+        slope_error = np.sqrt(np.diag(pcov))[0]
+        d_spacing_error = slope_error / 2
     else:
         slope = np.nan
         d_spacing = np.nan
+        d_spacing_error = np.nan
 
-    return sin_theta_over_lambda_array, n_values, slope, d_spacing
+    return sin_theta_over_lambda_array, n_values, slope, d_spacing, d_spacing_error
 
 
 def perform_combined_fit(
     combined_data: list[tuple[float, str, int]], lambda_a: float, lambda_b: float
-) -> tuple[np.ndarray, np.ndarray, float, float]:
+) -> tuple[np.ndarray, np.ndarray, float, float, float]:
     """
     Perform combined fit for K-alpha and K-beta peaks together.
     Each point uses its own wavelength: n = (2d/λ)*sin(θ)
@@ -125,7 +153,7 @@ def perform_combined_fit(
         lambda_b: K-beta wavelength
 
     Returns:
-        Tuple of (sin_theta_over_lambda, n_values, slope, d_spacing)
+        Tuple of (sin_theta_over_lambda, n_values, slope, d_spacing, d_spacing_error)
     """
     # Convert to (angle, wavelength, order_n) format
     data_with_wavelength = [

@@ -6,6 +6,7 @@ from rich.console import Console
 
 from xray.bragg.calculations import (
     calculate_error_percentage,
+    format_value_with_error,
     perform_bragg_fit_core,
     perform_combined_fit,
 )
@@ -163,10 +164,10 @@ def _create_peaks_dataframe(fit_data: list[tuple]) -> pd.DataFrame:
 
 def _perform_bragg_fit(
     peak_angles: list[float], wavelength: float
-) -> tuple[np.ndarray, np.ndarray, float, float]:
+) -> tuple[np.ndarray, np.ndarray, float, float, float]:
     """Perform Bragg fit for given peak angles and single wavelength."""
     if not peak_angles:
-        return np.array([]), np.array([]), np.nan, np.nan
+        return np.array([]), np.array([]), np.nan, np.nan, np.nan
 
     # Prepare data for fit: single wavelength for all peaks
     data_with_wavelength = [
@@ -224,23 +225,14 @@ def generate_summary_tables(
         )
 
     peak_df = pd.DataFrame(processed_peak_data)
-    peak_df.rename(
-        columns={
-            "Predefined Angle": "predefined_angle",
-            "Fitted Angle": "angle",
-            "Amplitude": "amplitude",
-            "Sigma": "sigma",
-            "Gamma": "gamma",
-        },
-        inplace=True,
-    )
-    peak_df = peak_df.sort_values("angle").reset_index(drop=True)
+
+    peak_df = peak_df.sort_values("Fitted Angle").reset_index(drop=True)
 
     # Now extract amplitudes, sigmas, gammas, and mean_angles from the sorted peak_df
-    amplitudes = peak_df["amplitude"].values
-    sigmas = peak_df["sigma"].values
-    gammas = peak_df["gamma"].values
-    mean_angles = peak_df["angle"].values
+    amplitudes = peak_df["Amplitude"].values
+    sigmas = peak_df["Sigma"].values
+    gammas = peak_df["Gamma"].values
+    mean_angles = peak_df["Fitted Angle"].values
 
     # Identify K-alpha and K-beta peaks
     ka_peaks_angles, kb_peaks_angles, combined_data = identify_ka_kb_peaks(
@@ -248,15 +240,23 @@ def generate_summary_tables(
     )
 
     # Perform fits for K-alpha, K-beta, and combined
-    ka_sin_theta, ka_n_values, ka_slope, d_fit_ka = _perform_bragg_fit(ka_peaks_angles, lambda_a)
-    kb_sin_theta, kb_n_values, kb_slope, d_fit_kb = _perform_bragg_fit(kb_peaks_angles, lambda_b)
-
-    # Combined fit - uses both wavelengths appropriately for each point
-    combined_sin_theta, combined_n_values, combined_slope, d_fit_combined = perform_combined_fit(
-        combined_data, lambda_a, lambda_b
+    ka_sin_theta, ka_n_values, ka_slope, d_fit_ka, d_fit_ka_error = _perform_bragg_fit(
+        ka_peaks_angles, lambda_a
+    )
+    kb_sin_theta, kb_n_values, kb_slope, d_fit_kb, d_fit_kb_error = _perform_bragg_fit(
+        kb_peaks_angles, lambda_b
     )
 
-    real_d_spacing = real_lattice_constant # Assuming SC for d-spacing comparison
+    # Combined fit - uses both wavelengths appropriately for each point
+    (
+        combined_sin_theta,
+        combined_n_values,
+        combined_slope,
+        d_fit_combined,
+        d_fit_combined_error,
+    ) = perform_combined_fit(combined_data, lambda_a, lambda_b)
+
+    real_d_spacing = real_lattice_constant  # Assuming SC for d-spacing comparison
 
     error_d_ka = calculate_error_percentage(d_fit_ka, real_d_spacing)
     error_d_kb = calculate_error_percentage(d_fit_kb, real_d_spacing)
@@ -266,10 +266,13 @@ def generate_summary_tables(
         {
             "known_d_spacing (Angstrom)": [real_d_spacing],
             "inferred_ka_d_spacing (Angstrom)": [d_fit_ka],
+            "inferred_ka_d_spacing_error (Angstrom)": [d_fit_ka_error],
             "error_ka_d_spacing (%)": [error_d_ka],
             "inferred_kb_d_spacing (Angstrom)": [d_fit_kb],
+            "inferred_kb_d_spacing_error (Angstrom)": [d_fit_kb_error],
             "error_kb_d_spacing (%)": [error_d_kb],
             "inferred_combined_d_spacing (Angstrom)": [d_fit_combined],
+            "inferred_combined_d_spacing_error (Angstrom)": [d_fit_combined_error],
             "error_combined_d_spacing (%)": [error_d_combined],
         }
     )
@@ -279,14 +282,17 @@ def generate_summary_tables(
         "ka_y_values": ka_n_values,
         "ka_slope": ka_slope,
         "ka_d_fit": d_fit_ka,
+        "ka_d_fit_error": d_fit_ka_error,
         "kb_x_values": kb_sin_theta,
         "kb_y_values": kb_n_values,
         "kb_slope": kb_slope,
         "kb_d_fit": d_fit_kb,
+        "kb_d_fit_error": d_fit_kb_error,
         "combined_x_values": combined_sin_theta,
         "combined_y_values": combined_n_values,
         "combined_slope": combined_slope,
         "combined_d_fit": d_fit_combined,
+        "combined_d_fit_error": d_fit_combined_error,
     }
 
     return peak_df, summary_df, fit_plot_data

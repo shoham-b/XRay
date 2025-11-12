@@ -94,19 +94,16 @@ def fit_global_background(
     if len(x_bg) < 3:
         return None
 
-    try:
-        bg_amp_guess = np.median(y_bg) if y_bg.size > 0 else 1.0
-        x_offset_guess = x_data.min() - (x_data.max() - x_data.min()) * 0.1
-        bg_scale_guess = (x_data.max() - x_data.min()) * 2
-        guess = [bg_amp_guess, x_offset_guess, bg_scale_guess]
-        lower = [0.0, -np.inf, 1e-6]
-        upper = [y_data.max() * 2, x_data.max(), np.inf]
-        popt, _ = curve_fit(
-            bremsstrahlung_bg, x_bg, y_bg, p0=guess, bounds=(lower, upper), maxfev=10000
-        )
-        return popt
-    except Exception:
-        return None
+    bg_amp_guess = np.median(y_bg) if y_bg.size > 0 else 1.0
+    x_offset_guess = x_data.min()
+    bg_scale_guess = (x_data.max() - x_data.min()) * 2
+    guess = [bg_amp_guess, x_offset_guess, bg_scale_guess]
+    lower = [0.0, x_data.min(), 1e-6]
+    upper = [y_data.max() * 2, x_data.max(), np.inf]
+    popt, _ = curve_fit(
+        bremsstrahlung_bg, x_bg, y_bg, p0=guess, bounds=(lower, upper), maxfev=10000
+    )
+    return popt
 
 
 def two_voigts(x, amp1, mean1, sigma1, gamma1, amp2, mean2, sigma2, gamma2):
