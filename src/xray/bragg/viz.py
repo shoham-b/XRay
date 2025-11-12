@@ -335,19 +335,29 @@ def create_multi_material_report(
             d_values["combined"], d_values["combined_error"]
         )
 
-        bragg_summary_html = """
-            <div class="mt-4">
-                <h4>Calculated d-spacing values (&Aring;)</h4>
+        if material_name == "LiF":
+            explanation = """
                 <p>
                     For LiF, the comparison is made assuming the d-spacing of the (100) plane,
                     so ($d_{{100}} = \\frac{{a}}{{\\sqrt{{1^2+0^2+0^2}}}} \\approx 4.026 &Aring;$),
                     where $a$ is the lattice constant for LiF.
                 </p>
+            """
+        elif material_name == "NaCl":
+            explanation = """
                 <p>
                     For NaCl, an FCC lattice, the comparison is made assuming the d-spacing of the (111) plane,
                     which is the smallest plane, so ($d_{{111}} = \\frac{{a}}{{\\sqrt{{1^2+1^2+1^2}}}} = \\frac{{a}}{{\\sqrt{{3}}}} \\approx 3.256 &Aring;$),
                     where $a$ is the lattice constant for NaCl.
                 </p>
+            """
+        else:
+            explanation = ""
+
+        bragg_summary_html = f"""
+            <div class="mt-4">
+                <h4>Calculated d-spacing values (&Aring;)</h4>
+                {explanation}
                 <p>Comparing with known d-spacing of <b>{real_d_spacing:.2f} &Aring;</b></p>
                 <ul>
                     <li>K&alpha; Fit: <b>{d_val_ka} &pm; {d_err_ka} &Aring;</b> (Error: {error_ka:.2f}%)</li>
@@ -355,18 +365,7 @@ def create_multi_material_report(
                     <li>Combined Fit: <b>{d_val_combined} &pm; {d_err_combined} &Aring;</b> (Error: {error_combined:.2f}%)</li>
                 </ul>
             </div>
-        """.format(
-            real_d_spacing=real_d_spacing,
-            d_val_ka=d_val_ka,
-            d_err_ka=d_err_ka,
-            error_ka=error_ka,
-            d_val_kb=d_val_kb,
-            d_err_kb=d_err_kb,
-            error_kb=error_kb,
-            d_val_combined=d_val_combined,
-            d_err_combined=d_err_combined,
-            error_combined=error_combined,
-        )
+        """
 
         active_class = "active show" if i == 0 else ""
         fade_class = "" if i == 0 else "fade"
