@@ -296,21 +296,30 @@ def create_multi_material_report(
         known_a = summary_table[("known_a (Angstrom)", "")].iloc[0]
 
         d_ka = summary_table[("inferred_d (Angstrom)", "ka")].iloc[0]
+        d_ka_error = summary_table[("inferred_d_error (Angstrom)", "ka")].iloc[0]
         a_111_ka = summary_table[("inferred_a_111 (Angstrom)", "ka")].iloc[0]
+        a_111_ka_error = summary_table[("inferred_a_111_error (Angstrom)", "ka")].iloc[0]
         error_a_111_ka = summary_table[("error_a_111 (%)", "ka")].iloc[0]
         a_200_ka = summary_table[("inferred_a_200 (Angstrom)", "ka")].iloc[0]
+        a_200_ka_error = summary_table[("inferred_a_200_error (Angstrom)", "ka")].iloc[0]
         error_a_200_ka = summary_table[("error_a_200 (%)", "ka")].iloc[0]
         
         d_kb = summary_table[("inferred_d (Angstrom)", "kb")].iloc[0]
+        d_kb_error = summary_table[("inferred_d_error (Angstrom)", "kb")].iloc[0]
         a_111_kb = summary_table[("inferred_a_111 (Angstrom)", "kb")].iloc[0]
+        a_111_kb_error = summary_table[("inferred_a_111_error (Angstrom)", "kb")].iloc[0]
         error_a_111_kb = summary_table[("error_a_111 (%)", "kb")].iloc[0]
         a_200_kb = summary_table[("inferred_a_200 (Angstrom)", "kb")].iloc[0]
+        a_200_kb_error = summary_table[("inferred_a_200_error (Angstrom)", "kb")].iloc[0]
         error_a_200_kb = summary_table[("error_a_200 (%)", "kb")].iloc[0]
 
         d_combined = summary_table[("inferred_d (Angstrom)", "combined")].iloc[0]
+        d_combined_error = summary_table[("inferred_d_error (Angstrom)", "combined")].iloc[0]
         a_111_combined = summary_table[("inferred_a_111 (Angstrom)", "combined")].iloc[0]
+        a_111_combined_error = summary_table[("inferred_a_111_error (Angstrom)", "combined")].iloc[0]
         error_a_111_combined = summary_table[("error_a_111 (%)", "combined")].iloc[0]
         a_200_combined = summary_table[("inferred_a_200 (Angstrom)", "combined")].iloc[0]
+        a_200_combined_error = summary_table[("inferred_a_200_error (Angstrom)", "combined")].iloc[0]
         error_a_200_combined = summary_table[("error_a_200 (%)", "combined")].iloc[0]
         
         d_values = {
@@ -340,7 +349,7 @@ def create_multi_material_report(
             classes="table table-striped table-hover", justify="center"
         )
         summary_table_html = summary_table.to_html(
-            classes="table table-striped table-hover", justify="center"
+            classes="table table-striped table-hover", justify="center", float_format="%.4f"
         )
 
         explanation = """
@@ -356,11 +365,11 @@ def create_multi_material_report(
             <div class="mt-4">
                 <h4>Calculated d-spacing and lattice constants (&Aring;)</h4>
                 {explanation}
-                <p>Comparing with known lattice constant $a$ of <b>{known_a:.3f} &Aring;</b></p>
+                <p>Comparing with known lattice constant $a$ of <b>{known_a:.4f} &Aring;</b></p>
                 <ul>
-                    <li>K&alpha; Fit: inferred d = <b>{d_ka:.3f} &Aring;</b>, inferred a_111 = <b>{a_111_ka:.3f} &Aring;</b> (Error: {error_a_111_ka:.2f}%), inferred a_200 = <b>{a_200_ka:.3f} &Aring;</b> (Error: {error_a_200_ka:.2f}%)</li>
-                    <li>K&beta; Fit: inferred d = <b>{d_kb:.3f} &Aring;</b>, inferred a_111 = <b>{a_111_kb:.3f} &Aring;</b> (Error: {error_a_111_kb:.2f}%), inferred a_200 = <b>{a_200_kb:.3f} &Aring;</b> (Error: {error_a_200_kb:.2f}%)</li>
-                    <li>Combined Fit: inferred d = <b>{d_combined:.3f} &Aring;</b>, inferred a_111 = <b>{a_111_combined:.3f} &Aring;</b> (Error: {error_a_111_combined:.2f}%), inferred a_200 = <b>{a_200_combined:.3f} &Aring;</b> (Error: {error_a_200_combined:.2f}%)</li>
+                    <li>K&alpha; Fit: inferred d = <b>{d_ka:.4f} &pm; {d_ka_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_ka:.4f} &pm; {a_111_ka_error:.4f} &Aring;</b> (Error: {error_a_111_ka:.4f}%), inferred a_200 = <b>{a_200_ka:.4f} &pm; {a_200_ka_error:.4f} &Aring;</b> (Error: {error_a_200_ka:.4f}%)</li>
+                    <li>K&beta; Fit: inferred d = <b>{d_kb:.4f} &pm; {d_kb_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_kb:.4f} &pm; {a_111_kb_error:.4f} &Aring;</b> (Error: {error_a_111_kb:.4f}%), inferred a_200 = <b>{a_200_kb:.4f} &pm; {a_200_kb_error:.4f} &Aring;</b> (Error: {error_a_200_kb:.4f}%)</li>
+                    <li>Combined Fit: inferred d = <b>{d_combined:.4f} &pm; {d_combined_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_combined:.4f} &pm; {a_111_combined_error:.4f} &Aring;</b> (Error: {error_a_111_combined:.4f}%), inferred a_200 = <b>{a_200_combined:.4f} &pm; {a_200_combined_error:.4f} &Aring;</b> (Error: {error_a_200_combined:.4f}%)</li>
                 </ul>
             </div>
         """
@@ -482,131 +491,3 @@ def create_multi_material_report(
     return out_path
 
 
-def create_multi_material_tex_report(
-    analysis_data_list: list[dict],
-    out_path: Path,
-) -> Path:
-    """Creates a self-contained LaTeX report for multiple materials."""
-    if not analysis_data_list:
-        return out_path
-
-    latex_parts = [
-        "\\documentclass{article}",
-        "\\usepackage{graphicx}",
-        "\\usepackage{booktabs}",
-        "\\usepackage{siunitx}",
-        "\\usepackage{amsmath}",
-        "\\usepackage[margin=1in]{geometry}",
-        "\\title{X-Ray Diffraction Analysis Report}",
-        "\\author{Gemini}",
-        "\\date{\\today}",
-        "\\begin{document}",
-        "\\maketitle",
-    ]
-
-    for analysis_data in analysis_data_list:
-        material_name = analysis_data["name"]
-        peak_table = analysis_data["peak_df"]
-        summary_table = analysis_data["summary_df"]
-        d_values = {
-            "ka": summary_table.loc[0, "inferred_ka_d_spacing (Angstrom)"],
-            "ka_error": summary_table.loc[0, "inferred_ka_d_spacing_error (Angstrom)"],
-            "kb": summary_table.loc[0, "inferred_kb_d_spacing (Angstrom)"],
-            "kb_error": summary_table.loc[0, "inferred_kb_d_spacing_error (Angstrom)"],
-            "combined": summary_table.loc[0, "inferred_combined_d_spacing (Angstrom)"],
-            "combined_error": summary_table.loc[
-                0, "inferred_combined_d_spacing_error (Angstrom)"
-            ],
-        }
-        real_d_spacing = analysis_data["real_lattice_constant"]
-        error_ka = calculate_error_percentage(d_values["ka"], real_d_spacing)
-        error_kb = calculate_error_percentage(d_values["kb"], real_d_spacing)
-        error_combined = calculate_error_percentage(d_values["combined"], real_d_spacing)
-
-        d_val_ka, d_err_ka = format_value_with_error(d_values["ka"], d_values["ka_error"])
-        d_val_kb, d_err_kb = format_value_with_error(d_values["kb"], d_values["kb_error"])
-        d_val_combined, d_err_combined = format_value_with_error(
-            d_values["combined"],
-            d_values["combined_error"],
-        )
-
-        latex_parts.append(f"\\section*{{Analysis for {material_name}}}")
-
-        # Explanatory text about the lattice; keep units outside of math mode so
-        # LaTeX does not expand \AA to \r inside "$...$", which would cause
-        # "Command \\r invalid in math mode" warnings.
-        if material_name == "LiF":
-            explanation = r"""
-                For LiF, an FCC lattice, the comparison is made assuming the d-spacing of the (111) plane,
-                which is the smallest plane, so $d_{111} = \frac{a}{\sqrt{1^2+1^2+1^2}} = \frac{a}{\sqrt{3}} \approx 2.324$ \AA,
-                and for the (200) plane, $d_{200} = \frac{a}{\sqrt{2^2+0^2+0^2}} = \frac{a}{2} \approx 2.015$ \AA,
-                where $a$ is the lattice constant for LiF.
-            """
-        elif material_name == "NaCl":
-            explanation = r"""
-                For NaCl, an FCC lattice, the comparison is made assuming the d-spacing of the (111) plane,
-                which is the smallest plane, so $d_{111} = \frac{a}{\sqrt{1^2+1^2+1^2}} = \frac{a}{\sqrt{3}} \approx 3.256$ \AA,
-                and for the (200) plane, $d_{200} = \frac{a}{\sqrt{2^2+0^2+0^2}} = \frac{a}{2} \approx 2.820$ \AA,
-                where $a$ is the lattice constant for NaCl.
-            """
-        else:
-            explanation = ""
-
-        latex_parts.append(explanation)
-
-        # Subsection header and summary of calculated d-spacing values
-        latex_parts.append(r"\subsection*{Calculated d-spacing values (\AA)}")
-        latex_parts.append(
-            f"Comparing with known d-spacing of \\textbf{{{real_d_spacing:.2f} \\AA}}"
-        )
-
-        # Itemized summary; use valid LaTeX escapes so no control characters appear
-        latex_parts.append(r"\begin{itemize}")
-        latex_parts.append(
-            f"\\item K$\\alpha$ Fit: \\textbf{{{d_val_ka} $\\pm$ {d_err_ka} \\AA}} (Error: {error_ka:.2f}\\ \%)"
-        )
-        latex_parts.append(
-            f"\\item K$\\beta$ Fit: \\textbf{{{d_val_kb} $\\pm$ {d_err_kb} \\AA}} (Error: {error_kb:.2f}\\ \%)"
-        )
-        latex_parts.append(
-            f"\\item Combined Fit: \\textbf{{{d_val_combined} $\\pm$ {d_err_combined} \\AA}} (Error: {error_combined:.2f}\\ \%)"
-        )
-        latex_parts.append(r"\end{itemize}")
-
-        # Summary table (matches the HTML summary_table_html contents)
-        latex_parts.append(r"\\subsection*{Summary Table}")
-        latex_parts.append(
-            summary_table.to_latex(
-                index=False,
-                caption=f"Summary of inferred d-spacing values for {material_name}.",
-                label=f"tab:{material_name}_summary",
-                float_format="%.4f",
-                # Match the number of alignment columns to the actual DataFrame
-                # and escape special characters (e.g. underscores) in headers
-                # so LaTeX does not enter math mode accidentally.
-                column_format="c" * len(summary_table.columns),
-                escape=True,
-            )
-        )
-
-        # Peak table: use standard column alignment so siunitx doesn't try to parse text headers as numbers
-        latex_parts.append(r"\subsection*{Peak Table}")
-        latex_parts.append(
-            peak_table.to_latex(
-                index=False,
-                caption=f"Peak data for {material_name}.",
-                label=f"tab:{material_name}_peaks",
-                float_format="%.4f",
-                column_format="ccccc",
-            )
-        )
-
-    latex_parts.append(r"\end{document}")
-
-    latex_content = "\n".join(latex_parts)
-
-    _ensure_out_dir(out_path.parent)
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(latex_content)
-
-    return out_path

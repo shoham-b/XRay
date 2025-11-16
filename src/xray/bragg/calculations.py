@@ -94,9 +94,8 @@ def format_value_with_error(value: float, error: float) -> tuple[str, str]:
     return formatted_value, formatted_error
 
 
-
 def perform_bragg_fit_core(
-    data_with_wavelength: list[tuple[float, float, int]],
+        data_with_wavelength: list[tuple[float, float, int]],
 ) -> tuple[np.ndarray, np.ndarray, float, float, float]:
     """
     Core Bragg fit function: n = (2d/λ)*sin(θ)
@@ -118,7 +117,7 @@ def perform_bragg_fit_core(
     sin_theta_over_lambda_values = []
     n_values_list = []
     for angle, wavelength, order_n in sorted_data:
-        sin_theta = np.sin(np.deg2rad(angle / 2))
+        sin_theta = np.sin(np.deg2rad(angle))
         sin_theta_over_lambda_values.append(sin_theta / wavelength)
         n_values_list.append(order_n)
 
@@ -141,7 +140,7 @@ def perform_bragg_fit_core(
 
 
 def perform_combined_fit(
-    combined_data: list[tuple[float, str, int]], lambda_a: float, lambda_b: float
+        combined_data: list[tuple[float, str, int]], lambda_a: float, lambda_b: float
 ) -> tuple[np.ndarray, np.ndarray, float, float, float]:
     """
     Perform combined fit for K-alpha and K-beta peaks together.

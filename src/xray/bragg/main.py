@@ -272,20 +272,39 @@ def generate_summary_tables(
     error_a_combined_111 = calculate_error_percentage(a_fit_combined_111, real_lattice_constant)
     error_a_combined_200 = calculate_error_percentage(a_fit_combined_200, real_lattice_constant)
 
+    # Calculate uncertainties for a
+    a_fit_ka_111_error = d_fit_ka_error * np.sqrt(3)
+    a_fit_ka_200_error = d_fit_ka_error * 2
+
+    a_fit_kb_111_error = d_fit_kb_error * np.sqrt(3)
+    a_fit_kb_200_error = d_fit_kb_error * 2
+
+    a_fit_combined_111_error = d_fit_combined_error * np.sqrt(3)
+    a_fit_combined_200_error = d_fit_combined_error * 2
+
     summary_data = {
         ("known_a (Angstrom)", ""): [real_lattice_constant],
         ("inferred_d (Angstrom)", "ka"): [d_fit_ka],
         ("inferred_d (Angstrom)", "kb"): [d_fit_kb],
         ("inferred_d (Angstrom)", "combined"): [d_fit_combined],
+        ("inferred_d_error (Angstrom)", "ka"): [d_fit_ka_error],
+        ("inferred_d_error (Angstrom)", "kb"): [d_fit_kb_error],
+        ("inferred_d_error (Angstrom)", "combined"): [d_fit_combined_error],
         ("inferred_a_111 (Angstrom)", "ka"): [a_fit_ka_111],
         ("inferred_a_111 (Angstrom)", "kb"): [a_fit_kb_111],
         ("inferred_a_111 (Angstrom)", "combined"): [a_fit_combined_111],
+        ("inferred_a_111_error (Angstrom)", "ka"): [a_fit_ka_111_error],
+        ("inferred_a_111_error (Angstrom)", "kb"): [a_fit_kb_111_error],
+        ("inferred_a_111_error (Angstrom)", "combined"): [a_fit_combined_111_error],
         ("error_a_111 (%)", "ka"): [error_a_ka_111],
         ("error_a_111 (%)", "kb"): [error_a_kb_111],
         ("error_a_111 (%)", "combined"): [error_a_combined_111],
         ("inferred_a_200 (Angstrom)", "ka"): [a_fit_ka_200],
         ("inferred_a_200 (Angstrom)", "kb"): [a_fit_kb_200],
         ("inferred_a_200 (Angstrom)", "combined"): [a_fit_combined_200],
+        ("inferred_a_200_error (Angstrom)", "ka"): [a_fit_ka_200_error],
+        ("inferred_a_200_error (Angstrom)", "kb"): [a_fit_kb_200_error],
+        ("inferred_a_200_error (Angstrom)", "combined"): [a_fit_combined_200_error],
         ("error_a_200 (%)", "ka"): [error_a_ka_200],
         ("error_a_200 (%)", "kb"): [error_a_kb_200],
         ("error_a_200 (%)", "combined"): [error_a_combined_200],
