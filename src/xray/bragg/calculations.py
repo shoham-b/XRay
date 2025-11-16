@@ -70,6 +70,26 @@ def calculate_error_percentage(inferred_value: float, real_value: float) -> floa
     return ((inferred_value - real_value) / real_value) * 100
 
 
+def calculate_std_dev_from_uncertainty(
+    inferred_value: float, real_value: float, uncertainty: float
+) -> float:
+    """
+    Calculate the number of standard deviations an inferred value is from the real value,
+    given its uncertainty.
+
+    Args:
+        inferred_value: The calculated/inferred value.
+        real_value: The known/real value.
+        uncertainty: The uncertainty associated with the inferred value (e.g., standard error).
+
+    Returns:
+        The number of standard deviations from the real value. Returns np.nan if uncertainty is zero or nan.
+    """
+    if np.isnan(inferred_value) or np.isnan(uncertainty) or uncertainty == 0:
+        return np.nan
+    return (inferred_value - real_value) / uncertainty
+
+
 def format_value_with_error(value: float, error: float) -> tuple[str, str]:
     """
     Formats a value and its error to the correct number of significant digits.

@@ -303,6 +303,8 @@ def create_multi_material_report(
         a_200_ka = summary_table[("inferred_a_200 (Angstrom)", "ka")].iloc[0]
         a_200_ka_error = summary_table[("inferred_a_200_error (Angstrom)", "ka")].iloc[0]
         error_a_200_ka = summary_table[("error_a_200 (%)", "ka")].iloc[0]
+        std_dev_a_111_ka = summary_table[("std_dev_a_111", "ka")].iloc[0]
+        std_dev_a_200_ka = summary_table[("std_dev_a_200", "ka")].iloc[0]
         
         d_kb = summary_table[("inferred_d (Angstrom)", "kb")].iloc[0]
         d_kb_error = summary_table[("inferred_d_error (Angstrom)", "kb")].iloc[0]
@@ -312,6 +314,8 @@ def create_multi_material_report(
         a_200_kb = summary_table[("inferred_a_200 (Angstrom)", "kb")].iloc[0]
         a_200_kb_error = summary_table[("inferred_a_200_error (Angstrom)", "kb")].iloc[0]
         error_a_200_kb = summary_table[("error_a_200 (%)", "kb")].iloc[0]
+        std_dev_a_111_kb = summary_table[("std_dev_a_111", "kb")].iloc[0]
+        std_dev_a_200_kb = summary_table[("std_dev_a_200", "kb")].iloc[0]
 
         d_combined = summary_table[("inferred_d (Angstrom)", "combined")].iloc[0]
         d_combined_error = summary_table[("inferred_d_error (Angstrom)", "combined")].iloc[0]
@@ -321,6 +325,8 @@ def create_multi_material_report(
         a_200_combined = summary_table[("inferred_a_200 (Angstrom)", "combined")].iloc[0]
         a_200_combined_error = summary_table[("inferred_a_200_error (Angstrom)", "combined")].iloc[0]
         error_a_200_combined = summary_table[("error_a_200 (%)", "combined")].iloc[0]
+        std_dev_a_111_combined = summary_table[("std_dev_a_111", "combined")].iloc[0]
+        std_dev_a_200_combined = summary_table[("std_dev_a_200", "combined")].iloc[0]
         
         d_values = {
             "ka": d_ka,
@@ -367,9 +373,9 @@ def create_multi_material_report(
                 {explanation}
                 <p>Comparing with known lattice constant $a$ of <b>{known_a:.4f} &Aring;</b></p>
                 <ul>
-                    <li>K&alpha; Fit: inferred d = <b>{d_ka:.4f} &pm; {d_ka_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_ka:.4f} &pm; {a_111_ka_error:.4f} &Aring;</b> (Error: {error_a_111_ka:.4f}%), inferred a_200 = <b>{a_200_ka:.4f} &pm; {a_200_ka_error:.4f} &Aring;</b> (Error: {error_a_200_ka:.4f}%)</li>
-                    <li>K&beta; Fit: inferred d = <b>{d_kb:.4f} &pm; {d_kb_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_kb:.4f} &pm; {a_111_kb_error:.4f} &Aring;</b> (Error: {error_a_111_kb:.4f}%), inferred a_200 = <b>{a_200_kb:.4f} &pm; {a_200_kb_error:.4f} &Aring;</b> (Error: {error_a_200_kb:.4f}%)</li>
-                    <li>Combined Fit: inferred d = <b>{d_combined:.4f} &pm; {d_combined_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_combined:.4f} &pm; {a_111_combined_error:.4f} &Aring;</b> (Error: {error_a_111_combined:.4f}%), inferred a_200 = <b>{a_200_combined:.4f} &pm; {a_200_combined_error:.4f} &Aring;</b> (Error: {error_a_200_combined:.4f}%)</li>
+                    <li>K&alpha; Fit: inferred d = <b>{d_ka:.4f} &pm; {d_ka_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_ka:.4f} &pm; {a_111_ka_error:.4f} &Aring;</b> (Error: {error_a_111_ka:.4f}%, Std Devs: {std_dev_a_111_ka:.4f}), inferred a_200 = <b>{a_200_ka:.4f} &pm; {a_200_ka_error:.4f} &Aring;</b> (Error: {error_a_200_ka:.4f}%, Std Devs: {std_dev_a_200_ka:.4f})</li>
+                    <li>K&beta; Fit: inferred d = <b>{d_kb:.4f} &pm; {d_kb_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_kb:.4f} &pm; {a_111_kb_error:.4f} &Aring;</b> (Error: {error_a_111_kb:.4f}%, Std Devs: {std_dev_a_111_kb:.4f}), inferred a_200 = <b>{a_200_kb:.4f} &pm; {a_200_kb_error:.4f} &Aring;</b> (Error: {error_a_200_kb:.4f}%, Std Devs: {std_dev_a_200_kb:.4f})</li>
+                    <li>Combined Fit: inferred d = <b>{d_combined:.4f} &pm; {d_combined_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_combined:.4f} &pm; {a_111_combined_error:.4f} &Aring;</b> (Error: {error_a_111_combined:.4f}%, Std Devs: {std_dev_a_111_combined:.4f}), inferred a_200 = <b>{a_200_combined:.4f} &pm; {a_200_combined_error:.4f} &Aring;</b> (Error: {error_a_200_combined:.4f}%, Std Devs: {std_dev_a_200_combined:.4f})</li>
                 </ul>
             </div>
         """

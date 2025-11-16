@@ -9,6 +9,7 @@ from xray.bragg.calculations import (
     format_value_with_error,
     perform_bragg_fit_core,
     perform_combined_fit,
+    calculate_std_dev_from_uncertainty,
 )
 from xray.bragg.peak_finding import (
     find_all_peaks_fitting,
@@ -282,6 +283,16 @@ def generate_summary_tables(
     a_fit_combined_111_error = d_fit_combined_error * np.sqrt(3)
     a_fit_combined_200_error = d_fit_combined_error * 2
 
+    # Calculate standard deviations from uncertainty
+    std_dev_a_ka_111 = calculate_std_dev_from_uncertainty(a_fit_ka_111, real_lattice_constant, a_fit_ka_111_error)
+    std_dev_a_ka_200 = calculate_std_dev_from_uncertainty(a_fit_ka_200, real_lattice_constant, a_fit_ka_200_error)
+
+    std_dev_a_kb_111 = calculate_std_dev_from_uncertainty(a_fit_kb_111, real_lattice_constant, a_fit_kb_111_error)
+    std_dev_a_kb_200 = calculate_std_dev_from_uncertainty(a_fit_kb_200, real_lattice_constant, a_fit_kb_200_error)
+
+    std_dev_a_combined_111 = calculate_std_dev_from_uncertainty(a_fit_combined_111, real_lattice_constant, a_fit_combined_111_error)
+    std_dev_a_combined_200 = calculate_std_dev_from_uncertainty(a_fit_combined_200, real_lattice_constant, a_fit_combined_200_error)
+
     summary_data = {
         ("known_a (Angstrom)", ""): [real_lattice_constant],
         ("inferred_d (Angstrom)", "ka"): [d_fit_ka],
@@ -299,6 +310,9 @@ def generate_summary_tables(
         ("error_a_111 (%)", "ka"): [error_a_ka_111],
         ("error_a_111 (%)", "kb"): [error_a_kb_111],
         ("error_a_111 (%)", "combined"): [error_a_combined_111],
+        ("std_dev_a_111", "ka"): [std_dev_a_ka_111],
+        ("std_dev_a_111", "kb"): [std_dev_a_kb_111],
+        ("std_dev_a_111", "combined"): [std_dev_a_combined_111],
         ("inferred_a_200 (Angstrom)", "ka"): [a_fit_ka_200],
         ("inferred_a_200 (Angstrom)", "kb"): [a_fit_kb_200],
         ("inferred_a_200 (Angstrom)", "combined"): [a_fit_combined_200],
@@ -308,6 +322,9 @@ def generate_summary_tables(
         ("error_a_200 (%)", "ka"): [error_a_ka_200],
         ("error_a_200 (%)", "kb"): [error_a_kb_200],
         ("error_a_200 (%)", "combined"): [error_a_combined_200],
+        ("std_dev_a_200", "ka"): [std_dev_a_ka_200],
+        ("std_dev_a_200", "kb"): [std_dev_a_kb_200],
+        ("std_dev_a_200", "combined"): [std_dev_a_combined_200],
     }
 
     summary_df = pd.DataFrame(summary_data)
