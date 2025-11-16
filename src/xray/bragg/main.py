@@ -256,26 +256,42 @@ def generate_summary_tables(
         d_fit_combined_error,
     ) = perform_combined_fit(combined_data, lambda_a, lambda_b)
 
-    real_d_spacing = real_lattice_constant  # Assuming SC for d-spacing comparison
+    # Calculate inferred lattice constants and their errors
+    a_fit_ka_111 = d_fit_ka * np.sqrt(3)
+    a_fit_ka_200 = d_fit_ka * 2
+    error_a_ka_111 = calculate_error_percentage(a_fit_ka_111, real_lattice_constant)
+    error_a_ka_200 = calculate_error_percentage(a_fit_ka_200, real_lattice_constant)
 
-    error_d_ka = calculate_error_percentage(d_fit_ka, real_d_spacing)
-    error_d_kb = calculate_error_percentage(d_fit_kb, real_d_spacing)
-    error_d_combined = calculate_error_percentage(d_fit_combined, real_d_spacing)
+    a_fit_kb_111 = d_fit_kb * np.sqrt(3)
+    a_fit_kb_200 = d_fit_kb * 2
+    error_a_kb_111 = calculate_error_percentage(a_fit_kb_111, real_lattice_constant)
+    error_a_kb_200 = calculate_error_percentage(a_fit_kb_200, real_lattice_constant)
 
-    summary_df = pd.DataFrame(
-        {
-            "known_d_spacing (Angstrom)": [real_d_spacing],
-            "inferred_ka_d_spacing (Angstrom)": [d_fit_ka],
-            "inferred_ka_d_spacing_error (Angstrom)": [d_fit_ka_error],
-            "error_ka_d_spacing (%)": [error_d_ka],
-            "inferred_kb_d_spacing (Angstrom)": [d_fit_kb],
-            "inferred_kb_d_spacing_error (Angstrom)": [d_fit_kb_error],
-            "error_kb_d_spacing (%)": [error_d_kb],
-            "inferred_combined_d_spacing (Angstrom)": [d_fit_combined],
-            "inferred_combined_d_spacing_error (Angstrom)": [d_fit_combined_error],
-            "error_combined_d_spacing (%)": [error_d_combined],
-        }
-    )
+    a_fit_combined_111 = d_fit_combined * np.sqrt(3)
+    a_fit_combined_200 = d_fit_combined * 2
+    error_a_combined_111 = calculate_error_percentage(a_fit_combined_111, real_lattice_constant)
+    error_a_combined_200 = calculate_error_percentage(a_fit_combined_200, real_lattice_constant)
+
+    summary_data = {
+        ("known_a (Angstrom)", ""): [real_lattice_constant],
+        ("inferred_d (Angstrom)", "ka"): [d_fit_ka],
+        ("inferred_d (Angstrom)", "kb"): [d_fit_kb],
+        ("inferred_d (Angstrom)", "combined"): [d_fit_combined],
+        ("inferred_a_111 (Angstrom)", "ka"): [a_fit_ka_111],
+        ("inferred_a_111 (Angstrom)", "kb"): [a_fit_kb_111],
+        ("inferred_a_111 (Angstrom)", "combined"): [a_fit_combined_111],
+        ("error_a_111 (%)", "ka"): [error_a_ka_111],
+        ("error_a_111 (%)", "kb"): [error_a_kb_111],
+        ("error_a_111 (%)", "combined"): [error_a_combined_111],
+        ("inferred_a_200 (Angstrom)", "ka"): [a_fit_ka_200],
+        ("inferred_a_200 (Angstrom)", "kb"): [a_fit_kb_200],
+        ("inferred_a_200 (Angstrom)", "combined"): [a_fit_combined_200],
+        ("error_a_200 (%)", "ka"): [error_a_ka_200],
+        ("error_a_200 (%)", "kb"): [error_a_kb_200],
+        ("error_a_200 (%)", "combined"): [error_a_combined_200],
+    }
+
+    summary_df = pd.DataFrame(summary_data)
 
     fit_plot_data = {
         "ka_x_values": ka_sin_theta,

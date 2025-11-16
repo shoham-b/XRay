@@ -292,15 +292,34 @@ def create_multi_material_report(
         peak_table = analysis_data["peak_df"]
         summary_table = analysis_data["summary_df"]
         fit_plot_data = analysis_data["fit_plot_data"]
+        
+        known_a = summary_table[("known_a (Angstrom)", "")].iloc[0]
+
+        d_ka = summary_table[("inferred_d (Angstrom)", "ka")].iloc[0]
+        a_111_ka = summary_table[("inferred_a_111 (Angstrom)", "ka")].iloc[0]
+        error_a_111_ka = summary_table[("error_a_111 (%)", "ka")].iloc[0]
+        a_200_ka = summary_table[("inferred_a_200 (Angstrom)", "ka")].iloc[0]
+        error_a_200_ka = summary_table[("error_a_200 (%)", "ka")].iloc[0]
+        
+        d_kb = summary_table[("inferred_d (Angstrom)", "kb")].iloc[0]
+        a_111_kb = summary_table[("inferred_a_111 (Angstrom)", "kb")].iloc[0]
+        error_a_111_kb = summary_table[("error_a_111 (%)", "kb")].iloc[0]
+        a_200_kb = summary_table[("inferred_a_200 (Angstrom)", "kb")].iloc[0]
+        error_a_200_kb = summary_table[("error_a_200 (%)", "kb")].iloc[0]
+
+        d_combined = summary_table[("inferred_d (Angstrom)", "combined")].iloc[0]
+        a_111_combined = summary_table[("inferred_a_111 (Angstrom)", "combined")].iloc[0]
+        error_a_111_combined = summary_table[("error_a_111 (%)", "combined")].iloc[0]
+        a_200_combined = summary_table[("inferred_a_200 (Angstrom)", "combined")].iloc[0]
+        error_a_200_combined = summary_table[("error_a_200 (%)", "combined")].iloc[0]
+        
         d_values = {
-            "ka": summary_table.loc[0, "inferred_ka_d_spacing (Angstrom)"],
-            "ka_error": summary_table.loc[0, "inferred_ka_d_spacing_error (Angstrom)"],
-            "kb": summary_table.loc[0, "inferred_kb_d_spacing (Angstrom)"],
-            "kb_error": summary_table.loc[0, "inferred_kb_d_spacing_error (Angstrom)"],
-            "combined": summary_table.loc[0, "inferred_combined_d_spacing (Angstrom)"],
-            "combined_error": summary_table.loc[
-                0, "inferred_combined_d_spacing_error (Angstrom)"
-            ],
+            "ka": d_ka,
+            "ka_error": fit_plot_data["ka_d_fit_error"], # keep original d_error for now
+            "kb": d_kb,
+            "kb_error": fit_plot_data["kb_d_fit_error"], # keep original d_error for now
+            "combined": d_combined,
+            "combined_error": fit_plot_data["combined_d_fit_error"], # keep original d_error for now
         }
 
         fig = _create_single_material_plot(
@@ -324,45 +343,24 @@ def create_multi_material_report(
             classes="table table-striped table-hover", justify="center"
         )
 
-        real_d_spacing = analysis_data["real_lattice_constant"]
-        error_ka = calculate_error_percentage(d_values["ka"], real_d_spacing)
-        error_kb = calculate_error_percentage(d_values["kb"], real_d_spacing)
-        error_combined = calculate_error_percentage(d_values["combined"], real_d_spacing)
-
-        d_val_ka, d_err_ka = format_value_with_error(d_values["ka"], d_values["ka_error"])
-        d_val_kb, d_err_kb = format_value_with_error(d_values["kb"], d_values["kb_error"])
-        d_val_combined, d_err_combined = format_value_with_error(
-            d_values["combined"], d_values["combined_error"]
-        )
-
-        if material_name == "LiF":
-            explanation = """
-                <p>
-                    For LiF, the comparison is made assuming the d-spacing of the (100) plane,
-                    so ($d_{{100}} = \\frac{{a}}{{\\sqrt{{1^2+0^2+0^2}}}} \\approx 4.026 &Aring;$),
-                    where $a$ is the lattice constant for LiF.
-                </p>
-            """
-        elif material_name == "NaCl":
-            explanation = """
-                <p>
-                    For NaCl, an FCC lattice, the comparison is made assuming the d-spacing of the (111) plane,
-                    which is the smallest plane, so ($d_{{111}} = \\frac{{a}}{{\\sqrt{{1^2+1^2+1^2}}}} = \\frac{{a}}{{\\sqrt{{3}}}} \\approx 3.256 &Aring;$),
-                    where $a$ is the lattice constant for NaCl.
-                </p>
-            """
-        else:
-            explanation = ""
+        explanation = """
+            <p>
+                For an FCC lattice, the lattice constant $a$ can be inferred from the d-spacing $d$ using the formulas:
+                $a_{111} = d \\times \\sqrt{1^2+1^2+1^2} = d \\times \\sqrt{3}$
+                and
+                $a_{200} = d \\times \\sqrt{2^2+0^2+0^2} = d \\times 2$.
+            </p>
+        """
 
         bragg_summary_html = f"""
             <div class="mt-4">
-                <h4>Calculated d-spacing values (&Aring;)</h4>
+                <h4>Calculated d-spacing and lattice constants (&Aring;)</h4>
                 {explanation}
-                <p>Comparing with known d-spacing of <b>{real_d_spacing:.2f} &Aring;</b></p>
+                <p>Comparing with known lattice constant $a$ of <b>{known_a:.3f} &Aring;</b></p>
                 <ul>
-                    <li>K&alpha; Fit: <b>{d_val_ka} &pm; {d_err_ka} &Aring;</b> (Error: {error_ka:.2f}%)</li>
-                    <li>K&beta; Fit: <b>{d_val_kb} &pm; {d_err_kb} &Aring;</b> (Error: {error_kb:.2f}%)</li>
-                    <li>Combined Fit: <b>{d_val_combined} &pm; {d_err_combined} &Aring;</b> (Error: {error_combined:.2f}%)</li>
+                    <li>K&alpha; Fit: inferred d = <b>{d_ka:.3f} &Aring;</b>, inferred a_111 = <b>{a_111_ka:.3f} &Aring;</b> (Error: {error_a_111_ka:.2f}%), inferred a_200 = <b>{a_200_ka:.3f} &Aring;</b> (Error: {error_a_200_ka:.2f}%)</li>
+                    <li>K&beta; Fit: inferred d = <b>{d_kb:.3f} &Aring;</b>, inferred a_111 = <b>{a_111_kb:.3f} &Aring;</b> (Error: {error_a_111_kb:.2f}%), inferred a_200 = <b>{a_200_kb:.3f} &Aring;</b> (Error: {error_a_200_kb:.2f}%)</li>
+                    <li>Combined Fit: inferred d = <b>{d_combined:.3f} &Aring;</b>, inferred a_111 = <b>{a_111_combined:.3f} &Aring;</b> (Error: {error_a_111_combined:.2f}%), inferred a_200 = <b>{a_200_combined:.3f} &Aring;</b> (Error: {error_a_200_combined:.2f}%)</li>
                 </ul>
             </div>
         """
@@ -540,13 +538,15 @@ def create_multi_material_tex_report(
         if material_name == "LiF":
             explanation = r"""
                 For LiF, an FCC lattice, the comparison is made assuming the d-spacing of the (111) plane,
-                which is the smallest plane, so $d_{111} = \\frac{a}{\\sqrt{1^2+1^2+1^2}} = \\frac{a}{\\sqrt{3}} \\approx 2.324$ \\AA,
+                which is the smallest plane, so $d_{111} = \frac{a}{\sqrt{1^2+1^2+1^2}} = \frac{a}{\sqrt{3}} \approx 2.324$ \AA,
+                and for the (200) plane, $d_{200} = \frac{a}{\sqrt{2^2+0^2+0^2}} = \frac{a}{2} \approx 2.015$ \AA,
                 where $a$ is the lattice constant for LiF.
             """
         elif material_name == "NaCl":
             explanation = r"""
                 For NaCl, an FCC lattice, the comparison is made assuming the d-spacing of the (111) plane,
-                which is the smallest plane, so $d_{111} = \\frac{a}{\\sqrt{1^2+1^2+1^2}} = \\frac{a}{\\sqrt{3}} \\approx 3.256$ \\AA,
+                which is the smallest plane, so $d_{111} = \frac{a}{\sqrt{1^2+1^2+1^2}} = \frac{a}{\sqrt{3}} \approx 3.256$ \AA,
+                and for the (200) plane, $d_{200} = \frac{a}{\sqrt{2^2+0^2+0^2}} = \frac{a}{2} \approx 2.820$ \AA,
                 where $a$ is the lattice constant for NaCl.
             """
         else:
