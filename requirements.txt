@@ -1,1 +1,8 @@
-.
+pandas
+numpy
+scipy
+plotly
+rich
+typer
+Jinja2
+matplotlib

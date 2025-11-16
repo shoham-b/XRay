@@ -13,7 +13,8 @@ from xray.bragg.main import (
     perform_fitting_with_predefined_peaks,
     perform_peak_analysis,
 )
-from xray.bragg.viz import create_multi_material_report
+import subprocess
+from xray.bragg.viz import create_multi_material_report, create_multi_material_tex_report
 from xray.path_manager import PathManager
 
 bragg_cli = typer.Typer(
@@ -24,6 +25,34 @@ bragg_cli = typer.Typer(
 
 REAL_LATTICE_CONSTANT_NACL = 5.64  # Angstroms
 REAL_LATTICE_CONSTANT_LIF = 4.026  # Angstroms
+
+
+def compile_tex_to_pdf(tex_path: Path, console: Console) -> None:
+    """Compiles a TeX file to PDF using pdflatex."""
+    console.print(f"\n[bold]--- Compiling LaTeX to PDF ---[/bold]")
+    try:
+        process = subprocess.run(
+            [
+                "pdflatex",
+                "-interaction=nonstopmode",
+                f"-output-directory={tex_path.parent}",
+                str(tex_path),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        console.print(f"Successfully compiled [cyan]{tex_path}[/cyan] to PDF.")
+        pdf_path = tex_path.with_suffix(".pdf")
+        console.print(f"Saved PDF report to [cyan]{pdf_path.absolute()}[/cyan]")
+    except FileNotFoundError:
+        console.print(
+            "[bold red]Error: pdflatex not found. Please ensure you have a LaTeX distribution installed and in your PATH.[/bold red]"
+        )
+    except subprocess.CalledProcessError as e:
+        console.print(f"[bold red]Failed to compile LaTeX to PDF.[/bold red]")
+        console.print(f"pdflatex stdout:\n{e.stdout}")
+        console.print(f"pdflatex stderr:\n{e.stderr}")
 
 
 @bragg_cli.callback()
@@ -115,6 +144,22 @@ def bragg_analysis(
                 envvar="BRAGG_FIT_PREDEFINED_ANGLES",
             ),
         ] = True,
+        tex: Annotated[
+            bool,
+            typer.Option(
+                "--tex",
+                help="Generate a LaTeX report.",
+                envvar="BRAGG_TEX",
+            ),
+        ] = False,
+        pdf: Annotated[
+            bool,
+            typer.Option(
+                "--pdf",
+                help="Generate a PDF report from the LaTeX report.",
+                envvar="BRAGG_PDF",
+            ),
+        ] = False,
 ) -> int:
     """Analyzes X-ray diffraction data to find peaks and calculate d-spacing."""
     if expected_lif_angles is None:
@@ -252,6 +297,18 @@ def bragg_analysis(
         console.print(f"Saved interactive report to [cyan]{report_path.absolute().as_uri()}[/cyan]")
     except Exception as e:
         console.print(f"[bold red]Failed to generate interactive report: {e}[/bold red]")
+
+    # --- LaTeX Report ---
+    if tex or pdf:
+        console.print("\n[bold]--- Generating LaTeX Report ---[/bold]")
+        tex_report_path = output_dir / "report.tex"
+        try:
+            create_multi_material_tex_report(analysis_data_list, out_path=tex_report_path)
+            console.print(f"Saved LaTeX report to [cyan]{tex_report_path.absolute()}[/cyan]")
+            # Compile to PDF whenever a LaTeX report is requested (either --tex or --pdf)
+            compile_tex_to_pdf(tex_report_path, console)
+        except Exception as e:
+            console.print(f"[bold red]Failed to generate LaTeX report: {e}[/bold red]")
 
     return 0
 
