@@ -1,0 +1,17 @@
+AssertionError caught: 
+Error args: ()
+
+Exception type: <class 'AssertionError'>
+Exception value: 
+
+Frame locals: ['__name__', '__doc__', '__package__', '__loader__', '__spec__', '__annotations__', '__builtins__', '__file__', '__cached__', 'np', 'GeometryRefinement', 'Detector', 'Calibrant', 'pts_2d', 'det', 'e', 'f', 'sys', 'exc_type', 'exc_value', 'exc_tb', 'frame']
+
+Full traceback:
+Traceback (most recent call last):
+  File "C:\Users\shoha\git\XRay\debug_assertion.py", line 31, in <module>
+    refiner = GeometryRefinement(
+              ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\shoha\git\XRay\.venv\Lib\site-packages\pyFAI\geometryRefinement.py", line 107, in __init__
+    assert self.data.ndim == 2
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError
