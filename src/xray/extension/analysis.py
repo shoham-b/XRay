@@ -40,22 +40,10 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     h, w = img_arr.shape
 
     # --- 2. Find Center ---
-    # Check for cached calibration first
-    from . import calibration_cache
-    cached = calibration_cache.load_calibration(base_name)
-    
-    if cached:
-        # Use cached center and rings
-        center_x = int(cached['center']['x'])
-        center_y = int(cached['center']['y'])
-        ring_radii = cached['ring_radii']
-        centers_dict = {'Cached': (center_x, center_y)}
-        print(f"Using cached calibration for {base_name}")
-        print(f"Center: ({center_x}, {center_y})")
-    else:
-        # Use automated center finding
-        center_x, center_y, ring_radii, centers_dict = ip.find_center(img_inverted)
-        print(f"Center found at: ({center_x}, {center_y})")
+    # User request: "remove the calibration cache"
+    # Use automated center finding directly
+    center_x, center_y, ring_radii, centers_dict = ip.find_center(img_inverted)
+    print(f"Center found at: ({center_x}, {center_y})")
 
     # --- 3. Calculate Radial Profile ---
     radial_profile = ip.calculate_radial_profile(img_inverted, center_x, center_y)
@@ -77,7 +65,6 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     
     # Estimate background by bridging
     # We pass the smoothed profile and the peak indices (adjusted for the start_idx offset if needed)
-    # Note: find_initial_peaks returns indices relative to the full array (it adds start_idx)
     background_profile = calc.estimate_background_bridging(two_theta_deg, profile_smoothed, peak_indices, peak_properties, start_idx)
     
     # Subtract background for fitting
@@ -90,6 +77,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     print(f"Detected {len(peak_indices)} peaks. Successfully fitted {successful_fits} peaks.")
 
     # --- 8. Calculate d-spacings ---
+    # Define peak_angles and peak_intensities here
     peak_angles = two_theta_deg[peak_indices]
     peak_intensities = profile_smoothed[peak_indices]
     d_spacings_pm = calc.calculate_d_spacings(peak_angles, wavelength_pm)
@@ -128,6 +116,10 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # 3. Emboldened (Visualization)
     # User request: "expect the opposite of blurring to make it sharper"
     save_path_emboldened = viz.save_emboldened_image(img_inverted, base_name, str(images_dir))
+    
+    # 4. Rings (Visualization)
+    # User request: "peaks are converted back to rings... plotted on top of the image"
+    save_path_rings = viz.plot_rings_on_image(img_inverted, (center_x, center_y), peak_indices, base_name, str(images_dir))
     
     # Save graphs to 'graphs' directory
     save_path_r = viz.plot_intensity_vs_radius(radii_mm, profile_percent, base_name, str(graphs_dir))
@@ -188,6 +180,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         'plot_center_pixels_path': save_path_center_pixels,
         'plot_center_clean_path': save_path_center_clean,
         'plot_emboldened_path': save_path_emboldened,
+        'plot_rings_path': save_path_rings,
         'csv_path': str(csv_path),
         'interactive_theta_fig': interactive_theta_fig,
         'interactive_radius_fig': interactive_radius_fig

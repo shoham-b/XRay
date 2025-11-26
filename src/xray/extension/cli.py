@@ -132,4 +132,14 @@ def analyze_dir(
             viz.create_montage(center_paths, str(montage_path))
             typer.echo(f"Generated center montage: {montage_path}")
 
+        # Create montage of rings plots
+        rings_paths = []
+        for res in results_list:
+            if res.get('plot_rings_path'):
+                rings_paths.append(res['plot_rings_path'])
+        if rings_paths:
+            rings_montage_path = output_dir / "rings_montage.png"
+            viz.create_montage(rings_paths, str(rings_montage_path))
+            typer.echo(f"Generated rings montage: {rings_montage_path}")
+
     typer.echo(f"\nCompleted processing {len(image_files)} image(s).")

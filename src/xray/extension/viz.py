@@ -142,6 +142,35 @@ def save_emboldened_image(img_arr, base_name, output_dir):
     plt.close()
     return save_path
 
+def plot_rings_on_image(img_arr, center, radii_pixels, base_name, output_dir):
+    """
+    Plots the image with detected rings overlaid.
+    """
+    import matplotlib.patches as patches
+    
+    plt.figure(figsize=(10, 10))
+    plt.imshow(img_arr, cmap='gray')
+    
+    ax = plt.gca()
+    cx, cy = center
+    
+    # Plot center
+    ax.plot(cx, cy, 'rx', markersize=10, markeredgewidth=2)
+    
+    # Plot rings
+    for r in radii_pixels:
+        # Create a circle patch
+        circle = patches.Circle((cx, cy), r, linewidth=2, edgecolor='r', facecolor='none', alpha=0.7)
+        ax.add_patch(circle)
+        
+    plt.axis('off')
+    plt.title(f"Detected Rings (Peaks)\nSample: {base_name}")
+    
+    save_path = os.path.join(output_dir, f"{base_name}_rings.png")
+    plt.savefig(save_path, bbox_inches='tight', dpi=150)
+    plt.close()
+    return save_path
+
 def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_smoothed, 
                              peak_angles, peak_intensities, d_spacings_pm, 
                              fitted_peaks, background_profile,

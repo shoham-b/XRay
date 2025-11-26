@@ -10,13 +10,11 @@ def remove_blue(image_path):
     data = np.array(raw)
     
     # 3. Subtract Green Background (Median)
-    # Instead of just min(), we use median (50th percentile) to remove the bulk of the background.
-    # This assumes the signal (rings) occupies < 50% of the image.
-    g = data[:, :, 1]
-    g_bg = np.percentile(g, 30)
-    print(f"Green Background Subtraction: Removing median value {g_bg}")
-    # Use int16 to avoid underflow
-    data[:, :, 1] = np.maximum(g.astype(int) - g_bg, 0).astype(np.uint8)
+    # User request: "no other logic for image" - Removing background subtraction.
+    # g = data[:, :, 1]
+    # g_bg = np.percentile(g, 30)
+    # print(f"Green Background Subtraction: Removing median value {g_bg}")
+    # data[:, :, 1] = np.maximum(g.astype(int) - g_bg, 0).astype(np.uint8)
     
     # 4. Set the Blue channel to 0
     # Syntax: [all rows, all columns, channel index 2] (0=R, 1=G, 2=B)
@@ -54,9 +52,29 @@ def find_center(img_inverted):
     Finds the center of the diffraction pattern using the high-intensity contour method.
     """
     # 1. Preprocess
+    
+    # Hot Pixel Filter (User request: "sharply differenct from it's average sourounding intensity")
+    # We apply this BEFORE smoothing to remove single pixel spikes.
+    from scipy.ndimage import median_filter
+    
+    # Calculate local median (3x3 neighborhood)
+    local_median = median_filter(img_inverted, size=3)
+    
+    # Identify hot/cold pixels: significantly different from median
+    # User request: "filter both if much brigher or much darker"
+    
+    diff = img_inverted.astype(float) - local_median.astype(float)
+    
+    # Threshold: > 50% deviation from median AND > 20 units absolute difference
+    # We use absolute difference to catch both bright spikes and dark holes.
+    mask_outliers = (np.abs(diff) > 0.5 * local_median) & (np.abs(diff) > 20)
+    
+    img_filtered = img_inverted.copy()
+    img_filtered[mask_outliers] = local_median[mask_outliers]
+    
     # Smooth for robustness
     # User request: "use more aggressive bluuring"
-    img_smoothed = gaussian_filter(img_inverted, sigma=5)
+    img_smoothed = gaussian_filter(img_filtered, sigma=5)
     
     centers_dict = {}
     
