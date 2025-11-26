@@ -35,6 +35,15 @@ def bremsstrahlung_bg(x, bg_amp, x_offset, bg_scale):
     return bg_amp * x_shifted * np.exp(-x_shifted / (bg_scale + 1e-9))
 
 
+def double_voigt(x, amp_a, mean_a, sigma, gamma, amp_b_ratio):
+    """Composite model of two Voigt profiles for K-alpha and K-beta."""
+    if np is None:
+        return np.zeros_like(x)
+    mean_b = np.rad2deg(2 * np.arcsin(np.sin(np.deg2rad(mean_a) / 2) * 0.9036))
+    amp_b = amp_a * amp_b_ratio
+    return voigt(x, amp_a, mean_a, sigma, gamma) + voigt(x, amp_b, mean_b, sigma, gamma)
+
+
 def _create_single_material_plot(
     df: pd.DataFrame,
     analysis_results: dict,
@@ -68,11 +77,7 @@ def _create_single_material_plot(
     # 1. Raw data
     fig.add_trace(
         go.Scatter(
-            x=x_data,
-            y=y_data,
-            mode="markers",
-            name="Raw Data",
-            marker=dict(color="gray", size=4, opacity=0.6),
+            x=x_data, y=y_data, mode="markers", name="Raw Data", marker=dict(color="gray", size=4, opacity=0.6)
         ),
         row=1,
         col=1,
@@ -230,7 +235,7 @@ def _create_single_material_plot(
 
         # Combined fit line only (no additional dots)
         combined_x_values = fit_plot_data["combined_x_values"]
-        fit_plot_data["combined_y_values"]
+        #fit_plot_data["combined_y_values"] # This line was commented out in the original, keeping it commented
         combined_slope = fit_plot_data["combined_slope"]
         combined_d_fit = fit_plot_data["combined_d_fit"]
         combined_d_fit_error = fit_plot_data["combined_d_fit_error"]
@@ -361,13 +366,13 @@ def create_multi_material_report(
         explanation = """
             <p>
                 For an FCC lattice, the lattice constant $a$ can be inferred from the d-spacing $d$ using the formulas:
-                $a_{111} = d \\times \\sqrt{1^2+1^2+1^2} = d \\times \\sqrt{3}$
+                $a_{111} = d \times \sqrt{1^2+1^2+1^2} = d \times \sqrt{3}$
                 and
-                $a_{200} = d \\times \\sqrt{2^2+0^2+0^2} = d \\times 2$.
+                $a_{200} = d \times \sqrt{2^2+0^2+0^2} = d \times 2$.
             </p>
         """
 
-        bragg_summary_html = f"""
+        bragg_summary_html = """
             <div class="mt-4">
                 <h4>Calculated d-spacing and lattice constants (&Aring;)</h4>
                 {explanation}
@@ -378,14 +383,49 @@ def create_multi_material_report(
                     <li>Combined Fit: inferred d = <b>{d_combined:.4f} &pm; {d_combined_error:.4f} &Aring;</b>, inferred a_111 = <b>{a_111_combined:.4f} &pm; {a_111_combined_error:.4f} &Aring;</b> (Error: {error_a_111_combined:.4f}%, Std Devs: {std_dev_a_111_combined:.4f}), inferred a_200 = <b>{a_200_combined:.4f} &pm; {a_200_combined_error:.4f} &Aring;</b> (Error: {error_a_200_combined:.4f}%, Std Devs: {std_dev_a_200_combined:.4f})</li>
                 </ul>
             </div>
-        """
+        """.format(
+            explanation=explanation,
+            known_a=known_a,
+            d_ka=d_ka,
+            d_ka_error=d_ka_error,
+            a_111_ka=a_111_ka,
+            a_111_ka_error=a_111_ka_error,
+            error_a_111_ka=error_a_111_ka,
+            std_dev_a_111_ka=std_dev_a_111_ka,
+            a_200_ka=a_200_ka,
+            a_200_ka_error=a_200_ka_error,
+            error_a_200_ka=error_a_200_ka,
+            std_dev_a_200_ka=std_dev_a_200_ka,
+            d_kb=d_kb,
+            d_kb_error=d_kb_error,
+            a_111_kb=a_111_kb,
+            a_111_kb_error=a_111_kb_error,
+            error_a_111_kb=error_a_111_kb,
+            std_dev_a_111_kb=std_dev_a_111_kb,
+            a_200_kb=a_200_kb,
+            a_200_kb_error=a_200_kb_error,
+            error_a_200_kb=error_a_200_kb,
+            std_dev_a_200_kb=std_dev_a_200_kb,
+            d_combined=d_combined,
+            d_combined_error=d_combined_error,
+            a_111_combined=a_111_combined,
+            a_111_combined_error=a_111_combined_error,
+            error_a_111_combined=error_a_111_combined,
+            std_dev_a_111_combined=std_dev_a_111_combined,
+            a_200_combined=a_200_combined,
+            a_200_combined_error=a_200_combined_error,
+            error_a_200_combined=error_a_200_combined,
+            std_dev_a_200_combined=std_dev_a_200_combined,
+        )
 
         active_class = "active show" if i == 0 else ""
         fade_class = "" if i == 0 else "fade"
         tab_headers.append(
-            f'<li class="nav-item"><a class="nav-link {active_class}" data-toggle="tab" href="#{material_name}">{material_name}</a></li>'
+            '<li class="nav-item"><a class="nav-link {active_class}" data-toggle="tab" href="#{material_name}">{material_name}</a></li>'.format(
+                active_class=active_class, material_name=material_name
+            )
         )
-        tab_contents.append(f"""
+        tab_contents.append("""
             <div class="tab-pane container-fluid {fade_class} {active_class}" id="{material_name}">
                 <div id="plot_{material_name}">{plot_html}</div>
                 {bragg_summary_html}
@@ -394,9 +434,16 @@ def create_multi_material_report(
                     {peak_table_html}
                 </div>
             </div>
-        """)
+        """.format(
+            fade_class=fade_class,
+            active_class=active_class,
+            material_name=material_name,
+            plot_html=plot_html,
+            bragg_summary_html=bragg_summary_html,
+            peak_table_html=peak_table_html,
+        ))
 
-    html_content = f"""
+    html_content = """
     <!DOCTYPE html>
     <html>
     <head>
@@ -408,7 +455,7 @@ def create_multi_material_report(
         <script>
         MathJax = {{
           tex: {{
-            inlineMath: [['\$', '\$']]
+            inlineMath: [['$', '$']]
           }}
         }};
         </script>
@@ -428,64 +475,193 @@ def create_multi_material_report(
         <div class="container-fluid">
             <h1>X-Ray Diffraction Analysis Report</h1>
             <ul class="nav nav-tabs">
-                {''.join(tab_headers)}
+                {tab_headers}
             </ul>
             <div class="tab-content">
-                {''.join(tab_contents)}
+                {tab_contents}
             </div>
         </div>
         <script>
             // Function to handle plot resizing
-            function resizePlot(tabPane) {{
+            function resizePlot(tabPane) {
                 var plotDiv = $(tabPane).find(".plotly-graph-div")[0];
-                if (plotDiv && typeof Plotly !== 'undefined') {{
+                if (plotDiv && typeof Plotly !== 'undefined') {
                     // Force the plot to take full width of its container
-                    Plotly.relayout(plotDiv, {{
+                    Plotly.relayout(plotDiv, {
                         'autosize': true,
                         'width': null,
-                        'margin': {{l: 60, r: 20, t: 20, b: 60}},
+                        'margin': {l: 60, r: 20, t: 20, b: 60},
                         'height': 1000
-                    }});
+                    });
 
                     // Force a redraw to ensure proper rendering
-                    setTimeout(function() {{
+                    setTimeout(function() {
                         Plotly.Plots.resize(plotDiv);
-                    }}, 100);
-                }}
-            }}
+                    }, 100);
+                }
+            }
 
             // Handle tab changes
-            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {{
+            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
                 var target = $(e.target).attr("href"); // activated tab
                 resizePlot(target);
                 // Force a resize after a short delay to ensure the tab is fully shown
-                setTimeout(function() {{
+                setTimeout(function() {
                     resizePlot(target);
-                }}, 100);
-            }});
+                }, 100);
+            });
 
             // Resize all plots on window resize with debounce
             var resizeTimer;
-            $(window).on('resize', function() {{
+            $(window).on('resize', function() {
                 clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(function() {{
-                    $('.tab-pane.active').each(function() {{
+                resizeTimer = setTimeout(function() {
+                    \$('.tab-pane.active').each(function() {
                         resizePlot(this);
-                    }});
-                }}, 250);
-            }});
+                    });
+                }, 250);
+            });
 
             // Initial resize for the active tab after everything is loaded
-            $(window).on('load', function() {{
-                var activeTab = $('.tab-pane.active')[0];
-                if (activeTab) {{
+            \$(window).on('load', function() {
+                var activeTab = \$('.tab-pane.active')[0];
+                if (activeTab) {
                     // Multiple resizes to ensure proper rendering
                     resizePlot(activeTab);
-                    setTimeout(function() {{ resizePlot(activeTab); }}, 100);
-                    setTimeout(function() {{ resizePlot(activeTab); }}, 300);
-                }}
-            }});
+                    setTimeout(function() { resizePlot(activeTab); }, 100);
+                    setTimeout(function() { resizePlot(activeTab); }, 300);
+                }
+            });
         </script>
+    </body>
+    </html>
+    """.format(tab_headers=''.join(tab_headers), tab_contents=''.join(tab_contents))
+
+    _ensure_out_dir(out_path.parent)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(html_content)
+
+    return out_path
+
+
+def create_interactive_report(
+    df: pd.DataFrame,
+    initial_peaks: np.ndarray,
+    all_fits: list,
+    bg_params: tuple | None,
+    final_model_peaks: np.ndarray,
+    peak_table: pd.DataFrame,
+    summary_table: pd.DataFrame,
+    out_path: Path,
+) -> Path:
+    """Creates a self-contained HTML report with an interactive plot and summary tables."""
+    if go is None or df.empty or np is None:
+        return out_path
+
+    fig = go.Figure()
+    x_data = df["Angle"].values
+    y_data = df["Intensity"].values
+
+    # 1. Raw data
+    fig.add_trace(
+        go.Scatter(
+            x=x_data, y=y_data, mode="markers", name="Raw Data", marker=dict(color="gray", size=4)
+        )
+    )
+
+    # 2. Initial peaks
+    if initial_peaks.size > 0:
+        fig.add_trace(
+            go.Scatter(
+                x=x_data[initial_peaks],
+                y=y_data[initial_peaks],
+                mode="markers",
+                name="Initial Peaks",
+                marker=dict(color="red", size=10, symbol="x"),
+            )
+        )
+
+    # 3. Global background and total fit
+    if bg_params is not None:
+        x_fit_global = np.linspace(x_data.min(), x_data.max(), 1000)
+        y_bg_global = bremsstrahlung_bg(x_fit_global, *bg_params)
+        fig.add_trace(
+            go.Scatter(
+                x=x_fit_global,
+                y=y_bg_global,
+                mode="lines",
+                name="Global BG Fit",
+                line=dict(color="green", dash="dash"),
+            )
+        )
+
+        y_total_fit = bremsstrahlung_bg(x_data, *bg_params)
+        for _, fit_params, _ in all_fits:
+            if fit_params is not None:
+                y_total_fit += double_voigt(x_data, *fit_params)
+
+        fig.add_trace(
+            go.Scatter(
+                x=x_data,
+                y=y_total_fit,
+                mode="lines",
+                name="Total Combined Fit",
+                line=dict(color="orange", width=3),
+            )
+        )
+
+        # 4. Final model peaks
+        if final_model_peaks.size > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=x_data[final_model_peaks],
+                    y=y_total_fit[final_model_peaks],
+                    mode="markers",
+                    name="Final Model Peaks",
+                    marker=dict(color="purple", size=12, symbol="cross"),
+                )
+            )
+
+    fig.update_layout(
+        title="X-Ray Diffraction Analysis Summary",
+        xaxis_title="Angle (2θ)",
+        yaxis_title="Intensity (counts)",
+        legend_title="Legend",
+    )
+
+    # Convert tables to HTML
+    peak_table_html = peak_table.to_html(
+        classes="table table-striped table-hover", justify="center"
+    )
+    summary_table_html = summary_table.to_html(
+        classes="table table-striped table-hover", justify="center"
+    )
+
+    # Create HTML report
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>X-Ray Analysis Report</title>
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+        <style>
+            body {{ font-family: sans-serif; padding: 2rem; }}
+            .table-container {{ margin-top: 2rem; }}
+        </style>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <h1>X-Ray Diffraction Analysis Report</h1>
+            <div id="plot">{fig.to_html(full_html=False, include_plotlyjs=True)}</div>
+            <div class="table-container">
+                <h2>Fitted Peak Details</h2>
+                {peak_table_html}
+            </div>
+            <div class="table-container">
+                <h2>d-spacing Summary</h2>
+                {summary_table_html}
+            </div>
+        </div>
     </body>
     </html>
     """
@@ -495,5 +671,3 @@ def create_multi_material_report(
         f.write(html_content)
 
     return out_path
-
-
