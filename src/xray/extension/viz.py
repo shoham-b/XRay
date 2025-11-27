@@ -4,13 +4,32 @@ import numpy as np
 import plotly.graph_objects as go
 from .calculations import sinc_func
 
-def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, output_dir):
+def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, output_dir, start_radius_mm=None, peak_radii=None, peak_d_spacings=None):
     """Plots Normalized Intensity vs. Radius (mm)."""
     plt.figure(figsize=(10, 6))
     plt.plot(radii_mm, profile_percent, color='lightgray', linewidth=1.5, label='Raw Intensity')
     if background_profile is not None:
-        plt.plot(radii_mm, background_profile, color='green', linestyle='--', label='Background (Poly)')
+        plt.plot(radii_mm, background_profile, color='green', linestyle='--', label='Background (Polynomial)')
     plt.plot(radii_mm, profile_subtracted, color='blue', linewidth=1.5, label='Subtracted Intensity')
+    
+    # Plot start line
+    if start_radius_mm is not None and start_radius_mm > 0:
+        plt.axvline(x=start_radius_mm, color='red', linestyle=':', label='Fit Start')
+        
+    # Plot Peaks
+    if peak_radii is not None and len(peak_radii) > 0:
+        # Get intensities at peak radii
+        # We need to interpolate or find nearest index if we don't have exact intensities passed
+        # But we can just use np.interp on the profile_subtracted
+        peak_intensities = np.interp(peak_radii, radii_mm, profile_subtracted)
+        
+        plt.plot(peak_radii, peak_intensities, "x", color='red', markersize=8, label='Peaks')
+        
+        if peak_d_spacings is not None:
+            for r, i, d in zip(peak_radii, peak_intensities, peak_d_spacings):
+                plt.text(r, i + 2, f"d={d:.0f} pm",
+                         ha='center', va='bottom', fontsize=8, color='darkred', rotation=90)
+        
     plt.title(f"Normalized Intensity vs. Distance ($r$)\nSample: {base_name}")
     plt.xlabel("Distance from Center $r$ (mm)")
     plt.ylabel("Normalized Intensity (%)")
@@ -19,10 +38,10 @@ def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, prof
     plt.grid(True, alpha=0.5, linestyle='--')
     plt.legend()
 
-    save_path = Path(output_dir) / f"{base_name}_intensity_vs_radius.png"
-    plt.savefig(save_path)
+    output_path = Path(output_dir) / f"{base_name}_intensity_vs_radius.png"
+    plt.savefig(output_path, dpi=300)
     plt.close()
-    return save_path
+    return output_path
 
 def plot_center_on_image(img_arr, center_x, center_y, peak_radii_pixels, base_name, output_dir, centers_dict=None, filename_suffix="_center.png"):
     """Plots the image with the detected center marked and rings for peaks."""
@@ -177,7 +196,7 @@ def plot_rings_on_image(img_arr, center, radii_pixels, base_name, output_dir):
 def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted, 
                              peak_angles, peak_intensities, d_spacings_pm, 
                              fitted_peaks, background_profile,
-                             base_name, distance_L_mm, output_dir):
+                             base_name, distance_L_mm, output_dir, start_radius_mm=None):
     """Plots Intensity vs. 2-Theta with d-spacings and fits."""
     plt.figure(figsize=(12, 7))
     
@@ -231,7 +250,7 @@ def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted,
 
 def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted, 
                             peak_angles, peak_intensities, d_spacings_pm, 
-                            fitted_peaks, background_profile, base_name):
+                            fitted_peaks, background_profile, base_name, start_radius_mm=None):
     """Creates an interactive Plotly figure."""
     fig = go.Figure()
 
@@ -301,7 +320,7 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted,
     
     return fig
 
-def create_interactive_radius_plot(radii_mm, profile_percent, background_profile, profile_subtracted, base_name):
+def create_interactive_radius_plot(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, start_radius_mm=None, peak_radii=None, peak_d_spacings=None):
     """Creates an interactive Plotly figure for Intensity vs Radius."""
     fig = go.Figure()
 
@@ -314,7 +333,7 @@ def create_interactive_radius_plot(radii_mm, profile_percent, background_profile
     if background_profile is not None:
         fig.add_trace(go.Scatter(
             x=radii_mm, y=background_profile,
-            mode='lines', name='Background (Poly)',
+            mode='lines', name='Background (Polynomial)',
             line=dict(color='green', width=1.5, dash='dash')
         ))
 
@@ -323,13 +342,34 @@ def create_interactive_radius_plot(radii_mm, profile_percent, background_profile
         mode='lines', name='Subtracted Intensity',
         line=dict(color='blue', width=1.5)
     ))
+    
+    # Add vertical line for start point
+    if start_radius_mm is not None and start_radius_mm > 0:
+        fig.add_vline(x=start_radius_mm, line_width=1, line_dash="dot", line_color="red", annotation_text="Fit Start")
+
+    # Add Peaks
+    if peak_radii is not None and len(peak_radii) > 0:
+        peak_intensities = np.interp(peak_radii, radii_mm, profile_subtracted)
+        
+        hover_texts = []
+        if peak_d_spacings is not None:
+            hover_texts = [f"d={d:.0f} pm<br>r={r:.2f} mm" for r, d in zip(peak_radii, peak_d_spacings)]
+        else:
+            hover_texts = [f"r={r:.2f} mm" for r in peak_radii]
+            
+        fig.add_trace(go.Scatter(
+            x=peak_radii, y=peak_intensities,
+            mode='markers', name='Peaks',
+            marker=dict(color='red', size=8, symbol='x'),
+            text=hover_texts,
+            hovertemplate='%{text}<extra></extra>'
+        ))
 
     fig.update_layout(
-        title=f"Normalized Intensity vs. Distance (r) - {base_name}",
-        xaxis_title="Distance from Center r (mm)",
+        title=f"Intensity vs Radius (mm) - {base_name}",
+        xaxis_title="Radius (mm)",
         yaxis_title="Normalized Intensity (%)",
         template="plotly_white",
-        height=600,
         hovermode="x unified"
     )
     return fig

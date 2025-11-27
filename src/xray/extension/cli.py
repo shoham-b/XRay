@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
+import concurrent.futures
 from xray.extension.analysis import process_diffraction_image
 
 extension_cli = typer.Typer(
@@ -96,17 +97,27 @@ def analyze_dir(
     
     results_list = []
     
-    for image_file in image_files:
-        typer.echo(f"\nProcessing: {image_file.name}")
-        try:
-            result = process_diffraction_image(
-                image_file, phys_w_mm, phys_h_mm, distance_l_mm, wavelength_pm
-            )
-            if result:
-                results_list.append(result)
-        except Exception as e:
-            typer.echo(f"Error processing {image_file.name}: {e}")
-            continue
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        future_to_file = {
+            executor.submit(
+                process_diffraction_image, 
+                image_file, 
+                phys_w_mm, 
+                phys_h_mm, 
+                distance_l_mm, 
+                wavelength_pm
+            ): image_file for image_file in image_files
+        }
+        
+        for future in concurrent.futures.as_completed(future_to_file):
+            image_file = future_to_file[future]
+            try:
+                result = future.result()
+                typer.echo(f"Finished processing: {image_file.name}")
+                if result:
+                    results_list.append(result)
+            except Exception as e:
+                typer.echo(f"Error processing {image_file.name}: {e}")
     
     if results_list:
         from xray.extension import viz
