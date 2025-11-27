@@ -1,4 +1,4 @@
-import os
+
 import pandas as pd
 import numpy as np
 
@@ -19,13 +19,13 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     graphs_dir = base_output_dir / "graphs"
     images_dir = base_output_dir / "images"
     
-    os.makedirs(graphs_dir, exist_ok=True)
-    os.makedirs(images_dir, exist_ok=True)
+    graphs_dir.mkdir(parents=True, exist_ok=True)
+    images_dir.mkdir(parents=True, exist_ok=True)
 
-    base_name = os.path.splitext(os.path.basename(image_path))[0]
+    base_name = Path(image_path).stem
 
     print(f"Processing: {image_path}")
-    print(f"Output directory: {os.path.abspath(base_output_dir)}")
+    print(f"Output directory: {base_output_dir.resolve()}")
 
     # --- 1. Load and Preprocess Image ---
     # Now returns 4 values: img_arr, img_inverted (array), img_no_blue_rgb (PIL), img_inverted_pil (PIL)
@@ -54,23 +54,25 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
 
     # --- 5. Normalization ---
     profile_percent = calc.normalize_profile(radial_profile, pixel_scale_mm)
-    # User request: "don't smooth the intensity for the graphs"
-    # We skip smoothing. This affects both plotting and peak finding.
-    profile_smoothed = profile_percent 
-    # profile_smoothed = calc.smooth_profile(profile_percent)
+    
+    # --- 6. Background Subtraction (Polynomial) ---
+    # User request: "replace with polinimal fit for background"
+    # User request: "awesome, add one more component of the polinimial to the fit"
+    # User request: "use 98" (saturation threshold)
+    background_profile = calc.fit_polynomial_background(radii_mm, profile_percent, saturation_threshold=98, degree=4)
+    profile_subtracted = profile_percent - background_profile
+    
+    # Use subtracted profile for peak finding (no smoothing as requested)
+    profile_for_peaks = profile_subtracted
+    
+    # --- 7. Peak Finding ---
+    # Find peaks in the subtracted data
+    peak_indices, peak_properties, start_idx = calc.find_initial_peaks(profile_for_peaks, known_peak_indices=None)
+    
+    # We already have background and subtracted profile
 
-    # --- 6. Peak Finding ---
-    # Use ring_radii as known peaks if available
-    peak_indices, peak_properties, start_idx = calc.find_initial_peaks(profile_smoothed, known_peak_indices=ring_radii)
     
-    # Estimate background by bridging
-    # We pass the smoothed profile and the peak indices (adjusted for the start_idx offset if needed)
-    background_profile = calc.estimate_background_bridging(two_theta_deg, profile_smoothed, peak_indices, peak_properties, start_idx)
-    
-    # Subtract background for fitting
-    profile_subtracted = profile_smoothed - background_profile
-    
-    # --- 7. Sinc Fitting ---
+    # --- 8. Sinc Fitting ---
     fitted_peaks = calc.fit_sinc_peaks(two_theta_deg, profile_subtracted, peak_indices, peak_properties)
     
     successful_fits = sum(1 for p in fitted_peaks if p is not None)
@@ -79,7 +81,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # --- 8. Calculate d-spacings ---
     # Define peak_angles and peak_intensities here
     peak_angles = two_theta_deg[peak_indices]
-    peak_intensities = profile_smoothed[peak_indices]
+    peak_intensities = profile_subtracted[peak_indices]
     d_spacings_pm = calc.calculate_d_spacings(peak_angles, wavelength_pm)
     
     # Calculate peak radii in pixels for visualization
@@ -89,13 +91,12 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     if len(peak_radii_pixels) > 0:
         print(f"  Min radius: {np.min(peak_radii_pixels)}")
         print(f"  Max radius: {np.max(peak_radii_pixels)}")
-        print(f"  Image diagonal: {np.sqrt(h**2 + w**2)}")
 
     # --- 9. Plotting ---
     # Save center plot to 'images' directory
     # 1. With Pixels (Comparison)
     save_path_center_pixels = viz.plot_center_on_image(
-        img_arr, center_x, center_y, peak_radii_pixels, base_name, str(images_dir), 
+        img_arr, center_x, center_y, peak_radii_pixels, base_name, images_dir, 
         centers_dict=centers_dict, filename_suffix="_center_pixels.png"
     )
     
@@ -106,7 +107,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         del centers_dict_clean['ContourMask']
         
     save_path_center_clean = viz.plot_center_on_image(
-        img_arr, center_x, center_y, peak_radii_pixels, base_name, str(images_dir), 
+        img_arr, center_x, center_y, peak_radii_pixels, base_name, images_dir, 
         centers_dict=centers_dict_clean, filename_suffix="_center_clean.png"
     )
     
@@ -115,19 +116,22 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     
     # 3. Emboldened (Visualization)
     # User request: "expect the opposite of blurring to make it sharper"
-    save_path_emboldened = viz.save_emboldened_image(img_inverted, base_name, str(images_dir))
+    save_path_emboldened = viz.save_emboldened_image(img_inverted, base_name, images_dir)
     
     # 4. Rings (Visualization)
     # User request: "peaks are converted back to rings... plotted on top of the image"
-    save_path_rings = viz.plot_rings_on_image(img_inverted, (center_x, center_y), peak_indices, base_name, str(images_dir))
+    # User request: "The rings montage should also be on top of the blue change"
+    # We use img_no_blue (PIL) converted to array
+    img_no_blue_arr = np.array(img_no_blue)
+    save_path_rings = viz.plot_rings_on_image(img_no_blue_arr, (center_x, center_y), peak_indices, base_name, images_dir)
     
     # Save graphs to 'graphs' directory
-    save_path_r = viz.plot_intensity_vs_radius(radii_mm, profile_percent, base_name, str(graphs_dir))
+    save_path_r = viz.plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, graphs_dir)
     save_path_theta = viz.plot_intensity_vs_2theta(
-        two_theta_deg, profile_percent, profile_smoothed,
+        two_theta_deg, profile_percent, profile_subtracted,
         peak_angles, peak_intensities, d_spacings_pm,
         fitted_peaks, background_profile,
-        base_name, distance_L_mm, str(graphs_dir)
+        base_name, distance_L_mm, graphs_dir
     )
 
     # --- 10. Save Data to CSV ---
@@ -136,7 +140,8 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         'TwoTheta_deg': two_theta_deg,
         'Intensity_Raw': radial_profile,
         'Intensity_Normalized_Percent': profile_percent,
-        'Intensity_Smoothed': profile_smoothed
+        'Intensity_Background': background_profile,
+        'Intensity_Subtracted': profile_subtracted
     })
 
     # Save CSV to base output directory (or graphs? usually data is separate, but let's keep it in base or graphs)
@@ -148,21 +153,21 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
 
     # --- 11. Generate Interactive Plots & HTML Report ---
     interactive_theta_fig = viz.create_interactive_plot(
-        two_theta_deg, profile_percent, profile_smoothed,
+        two_theta_deg, profile_percent, profile_subtracted,
         peak_angles, peak_intensities, d_spacings_pm,
         fitted_peaks, background_profile, base_name
     )
     
     interactive_radius_fig = viz.create_interactive_radius_plot(
-        radii_mm, profile_percent, base_name
+        radii_mm, profile_percent, background_profile, profile_subtracted, base_name
     )
     
     save_path_preprocessed = images_dir / f"{base_name}_preprocessed.png"
     
     html_path = viz.generate_html_report(
-        str(base_output_dir), base_name, save_path_r, save_path_theta, str(csv_path), 
+        base_output_dir, base_name, save_path_r, save_path_theta, csv_path, 
         interactive_theta_fig, interactive_radius_fig, save_path_center,
-        preprocessed_image_path=str(save_path_preprocessed)
+        preprocessed_image_path=save_path_preprocessed
     )
 
     print(f"Saved plots and data to '{base_output_dir}' folder.")
@@ -181,7 +186,8 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         'plot_center_clean_path': save_path_center_clean,
         'plot_emboldened_path': save_path_emboldened,
         'plot_rings_path': save_path_rings,
-        'csv_path': str(csv_path),
+        'preprocessed_image_path': save_path_preprocessed,
+        'csv_path': csv_path,
         'interactive_theta_fig': interactive_theta_fig,
         'interactive_radius_fig': interactive_radius_fig
     }

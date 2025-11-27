@@ -67,7 +67,7 @@ def analyze_dir(
     """
     Analyzes all X-ray film images in a directory, generates plots, and saves results.
     """
-    from pathlib import Path
+
     
     dir_path = Path(directory_path)
     
@@ -100,7 +100,7 @@ def analyze_dir(
         typer.echo(f"\nProcessing: {image_file.name}")
         try:
             result = process_diffraction_image(
-                str(image_file), phys_w_mm, phys_h_mm, distance_l_mm, wavelength_pm
+                image_file, phys_w_mm, phys_h_mm, distance_l_mm, wavelength_pm
             )
             if result:
                 results_list.append(result)
@@ -117,7 +117,7 @@ def analyze_dir(
         
         combined_report_path = viz.generate_multi_image_report(output_dir, results_list)
         if combined_report_path:
-             typer.echo(f"\nGenerated combined report: {combined_report_path}")
+             typer.echo(f"\nGenerated combined report: {combined_report_path.as_uri()}")
 
         # Create montage of center plots (Comparison: Pixels vs Clean)
         center_paths = []
@@ -129,17 +129,40 @@ def analyze_dir(
                 center_paths.append(res['plot_center_path'])
         if center_paths:
             montage_path = output_dir / "centers_montage.png"
-            viz.create_montage(center_paths, str(montage_path))
-            typer.echo(f"Generated center montage: {montage_path}")
+            viz.create_montage(center_paths, montage_path)
+            typer.echo(f"Generated center montage: {montage_path.as_uri()}")
 
-        # Create montage of rings plots
+        # Create montage of rings plots (Comparison: Original vs Rings)
         rings_paths = []
         for res in results_list:
-            if res.get('plot_rings_path'):
+            if res.get('preprocessed_image_path') and res.get('plot_rings_path'):
+                rings_paths.append(res['preprocessed_image_path'])
+                rings_paths.append(res['plot_rings_path'])
+            elif res.get('plot_rings_path'):
                 rings_paths.append(res['plot_rings_path'])
         if rings_paths:
             rings_montage_path = output_dir / "rings_montage.png"
-            viz.create_montage(rings_paths, str(rings_montage_path))
-            typer.echo(f"Generated rings montage: {rings_montage_path}")
+            viz.create_montage(rings_paths, rings_montage_path)
+            typer.echo(f"Generated rings montage: {rings_montage_path.as_uri()}")
+
+        # Create montage of Intensity vs Radius plots
+        radius_paths = []
+        for res in results_list:
+            if res.get('plot_r_path'):
+                radius_paths.append(res['plot_r_path'])
+        if radius_paths:
+            radius_montage_path = output_dir / "radius_plots_montage.png"
+            viz.create_montage(radius_paths, radius_montage_path)
+            typer.echo(f"Generated radius plots montage: {radius_montage_path.as_uri()}")
+
+        # Create montage of Intensity vs 2-Theta plots
+        theta_paths = []
+        for res in results_list:
+            if res.get('plot_theta_path'):
+                theta_paths.append(res['plot_theta_path'])
+        if theta_paths:
+            theta_montage_path = output_dir / "theta_plots_montage.png"
+            viz.create_montage(theta_paths, theta_montage_path)
+            typer.echo(f"Generated 2-theta plots montage: {theta_montage_path.as_uri()}")
 
     typer.echo(f"\nCompleted processing {len(image_files)} image(s).")

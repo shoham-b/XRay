@@ -1,13 +1,16 @@
-import os
+from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
 from .calculations import sinc_func
 
-def plot_intensity_vs_radius(radii_mm, profile_percent, base_name, output_dir):
+def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, output_dir):
     """Plots Normalized Intensity vs. Radius (mm)."""
     plt.figure(figsize=(10, 6))
-    plt.plot(radii_mm, profile_percent, color='blue', linewidth=1.5, label='Avg Intensity')
+    plt.plot(radii_mm, profile_percent, color='lightgray', linewidth=1.5, label='Raw Intensity')
+    if background_profile is not None:
+        plt.plot(radii_mm, background_profile, color='green', linestyle='--', label='Background (Poly)')
+    plt.plot(radii_mm, profile_subtracted, color='blue', linewidth=1.5, label='Subtracted Intensity')
     plt.title(f"Normalized Intensity vs. Distance ($r$)\nSample: {base_name}")
     plt.xlabel("Distance from Center $r$ (mm)")
     plt.ylabel("Normalized Intensity (%)")
@@ -16,7 +19,7 @@ def plot_intensity_vs_radius(radii_mm, profile_percent, base_name, output_dir):
     plt.grid(True, alpha=0.5, linestyle='--')
     plt.legend()
 
-    save_path = os.path.join(output_dir, f"{base_name}_intensity_vs_radius.png")
+    save_path = Path(output_dir) / f"{base_name}_intensity_vs_radius.png"
     plt.savefig(save_path)
     plt.close()
     return save_path
@@ -101,7 +104,7 @@ def plot_center_on_image(img_arr, center_x, center_y, peak_radii_pixels, base_na
     plt.title(f"Detected Center Refinement Steps\nSample: {base_name}")
     plt.axis('off')
     
-    save_path = os.path.join(output_dir, f"{base_name}{filename_suffix}")
+    save_path = Path(output_dir) / f"{base_name}{filename_suffix}"
     plt.savefig(save_path, bbox_inches='tight', dpi=150)
     plt.close()
     return save_path
@@ -137,7 +140,7 @@ def save_emboldened_image(img_arr, base_name, output_dir):
     plt.axis('off')
     plt.title(f"Sharpened Intensity (Unsharp Mask)\nSample: {base_name}")
     
-    save_path = os.path.join(output_dir, f"{base_name}_emboldened.png")
+    save_path = Path(output_dir) / f"{base_name}_emboldened.png"
     plt.savefig(save_path, bbox_inches='tight', dpi=150)
     plt.close()
     return save_path
@@ -166,12 +169,12 @@ def plot_rings_on_image(img_arr, center, radii_pixels, base_name, output_dir):
     plt.axis('off')
     plt.title(f"Detected Rings (Peaks)\nSample: {base_name}")
     
-    save_path = os.path.join(output_dir, f"{base_name}_rings.png")
+    save_path = Path(output_dir) / f"{base_name}_rings.png"
     plt.savefig(save_path, bbox_inches='tight', dpi=150)
     plt.close()
     return save_path
 
-def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_smoothed, 
+def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted, 
                              peak_angles, peak_intensities, d_spacings_pm, 
                              fitted_peaks, background_profile,
                              base_name, distance_L_mm, output_dir):
@@ -180,7 +183,7 @@ def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_smoothed,
     
     # Plot Raw and Smoothed Data
     plt.plot(two_theta_deg, profile_percent, color='lightgray', label='Raw Data', alpha=0.5)
-    plt.plot(two_theta_deg, profile_smoothed, color='darkblue', linewidth=2, label='Smoothed Intensity')
+    plt.plot(two_theta_deg, profile_subtracted, color='darkblue', linewidth=2, label='Subtracted Intensity')
     
     # Plot Background if available
     if background_profile is not None:
@@ -221,12 +224,12 @@ def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_smoothed,
     
     plt.tight_layout()
 
-    save_path = os.path.join(output_dir, f"{base_name}_intensity_vs_2theta.png")
+    save_path = Path(output_dir) / f"{base_name}_intensity_vs_2theta.png"
     plt.savefig(save_path)
     plt.close()
     return save_path
 
-def create_interactive_plot(two_theta_deg, profile_percent, profile_smoothed, 
+def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted, 
                             peak_angles, peak_intensities, d_spacings_pm, 
                             fitted_peaks, background_profile, base_name):
     """Creates an interactive Plotly figure."""
@@ -240,10 +243,10 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_smoothed,
         opacity=0.5
     ))
 
-    # 2. Smoothed Data
+    # 2. Subtracted Data
     fig.add_trace(go.Scatter(
-        x=two_theta_deg, y=profile_smoothed,
-        mode='lines', name='Smoothed Intensity',
+        x=two_theta_deg, y=profile_subtracted,
+        mode='lines', name='Subtracted Intensity',
         line=dict(color='darkblue', width=2)
     ))
 
@@ -298,13 +301,26 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_smoothed,
     
     return fig
 
-def create_interactive_radius_plot(radii_mm, profile_percent, base_name):
+def create_interactive_radius_plot(radii_mm, profile_percent, background_profile, profile_subtracted, base_name):
     """Creates an interactive Plotly figure for Intensity vs Radius."""
     fig = go.Figure()
 
     fig.add_trace(go.Scatter(
         x=radii_mm, y=profile_percent,
-        mode='lines', name='Avg Intensity',
+        mode='lines', name='Raw Intensity',
+        line=dict(color='lightgray', width=1.5)
+    ))
+
+    if background_profile is not None:
+        fig.add_trace(go.Scatter(
+            x=radii_mm, y=background_profile,
+            mode='lines', name='Background (Poly)',
+            line=dict(color='green', width=1.5, dash='dash')
+        ))
+
+    fig.add_trace(go.Scatter(
+        x=radii_mm, y=profile_subtracted,
+        mode='lines', name='Subtracted Intensity',
         line=dict(color='blue', width=1.5)
     ))
 
@@ -322,11 +338,12 @@ def generate_html_report(output_dir, base_name, plot_r_path, plot_theta_path, cs
     """Generates an HTML report linking to the results."""
     
     # Calculate relative paths for HTML links
-    rel_plot_r = os.path.relpath(plot_r_path, output_dir)
-    rel_plot_theta = os.path.relpath(plot_theta_path, output_dir)
-    rel_csv = os.path.relpath(csv_path, output_dir)
-    rel_plot_center = os.path.relpath(plot_center_path, output_dir) if plot_center_path else None
-    rel_preprocessed = os.path.relpath(preprocessed_image_path, output_dir) if preprocessed_image_path else None
+    output_dir = Path(output_dir)
+    rel_plot_r = Path(plot_r_path).relative_to(output_dir)
+    rel_plot_theta = Path(plot_theta_path).relative_to(output_dir)
+    rel_csv = Path(csv_path).relative_to(output_dir)
+    rel_plot_center = Path(plot_center_path).relative_to(output_dir) if plot_center_path else None
+    rel_preprocessed = Path(preprocessed_image_path).relative_to(output_dir) if preprocessed_image_path else None
     
     theta_html = ""
     if interactive_theta_fig:
@@ -411,7 +428,7 @@ def generate_html_report(output_dir, base_name, plot_r_path, plot_theta_path, cs
     </html>
     """
     
-    html_path = os.path.join(output_dir, "index.html")
+    html_path = Path(output_dir) / "index.html"
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html_content)
     
@@ -438,19 +455,19 @@ def generate_multi_image_report(output_dir, results_list):
         if res.get('interactive_theta_fig'):
             theta_html = res['interactive_theta_fig'].to_html(full_html=False, include_plotlyjs=False)
         else:
-            rel_theta = os.path.relpath(res["plot_theta_path"], output_dir)
+            rel_theta = Path(res["plot_theta_path"]).relative_to(output_dir)
             theta_html = f'<img src="{rel_theta}" alt="Intensity vs 2-Theta">'
 
         radius_html = ""
         if res.get('interactive_radius_fig'):
             radius_html = res['interactive_radius_fig'].to_html(full_html=False, include_plotlyjs=False)
         else:
-            rel_r = os.path.relpath(res["plot_r_path"], output_dir)
+            rel_r = Path(res["plot_r_path"]).relative_to(output_dir)
             radius_html = f'<img src="{rel_r}" alt="Intensity vs Radius">'
             
         center_html = ""
         if res.get('plot_center_path'):
-             rel_center = os.path.relpath(res['plot_center_path'], output_dir)
+             rel_center = Path(res['plot_center_path']).relative_to(output_dir)
              center_html = f"""
                 <div class="col-md-12 mb-4">
                     <div class="plot">
@@ -460,7 +477,7 @@ def generate_multi_image_report(output_dir, results_list):
                 </div>
             """
             
-        csv_link = os.path.basename(res['csv_path'])
+        csv_link = Path(res['csv_path']).name
         
         # Tab Header
         active_class = "active" if i == 0 else ""
@@ -538,7 +555,7 @@ def generate_multi_image_report(output_dir, results_list):
     </html>
     """
     
-    html_path = os.path.join(output_dir, "index.html")
+    html_path = Path(output_dir) / "index.html"
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html_content)
     

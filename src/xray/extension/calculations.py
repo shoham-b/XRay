@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.signal import savgol_filter, find_peaks
 from scipy.optimize import curve_fit
+from scipy.ndimage import median_filter
 
 def pixels_to_mm(radial_profile, phys_w_mm, phys_h_mm, img_shape):
     """Converts pixel coordinates to mm."""
@@ -229,3 +230,116 @@ def calculate_d_spacings(two_theta_deg, wavelength_pm):
     with np.errstate(divide='ignore'):
         d_spacings_pm = wavelength_pm / (2 * np.sin(theta_rad))
     return d_spacings_pm
+
+def fit_polynomial_background(radii_mm, intensity, saturation_threshold=98, degree=4):
+    """
+    Fits a polynomial background to the intensity profile.
+    Ignores the beginning where intensity > saturation_threshold.
+    """
+    # 1. Mask saturated region at the start
+    # Find the first index where intensity drops below threshold AND stays below for a while
+    start_idx = 0
+    window_size = 20 # Check next 20 points
+    
+    found_start = False
+    for i in range(len(intensity) - window_size):
+        if intensity[i] < saturation_threshold:
+            # Check if it stays below threshold for the window
+            if np.all(intensity[i:i+window_size] < saturation_threshold):
+                start_idx = i
+                found_start = True
+                break
+    
+    # Fallback if window check failed but there are points below threshold
+    if not found_start:
+        for i, val in enumerate(intensity):
+            if val < saturation_threshold:
+                start_idx = i
+                break
+            
+    # If we never drop below threshold (unlikely), use a small offset
+    if start_idx >= len(intensity):
+        start_idx = int(len(intensity) * 0.1)
+        
+    # Add a safety margin to skip the "knee" of the saturation
+    start_idx += 10
+    if start_idx >= len(intensity):
+         start_idx = int(len(intensity) * 0.1)
+
+    # Use data from start_idx onwards
+    r_data = radii_mm[start_idx:]
+    y_data = intensity[start_idx:]
+    
+    if len(r_data) < degree + 2:
+        return np.zeros_like(intensity)
+
+    try:
+        # Iterative Sigma Clipping to ignore peaks
+        
+        # 0. Robust Initial Guess using Median Filter
+        # 0. Robust Initial Guess using Median Filter
+        # (Median filter removed as MAD-based clipping is sufficient and less biased)
+        y_guess = y_data
+            
+        # 1. Initial Fit
+            
+        # 1. Initial Fit to Median Filtered Data
+        mask_fit = np.ones_like(y_data, dtype=bool)
+        coeffs = np.polyfit(r_data, y_guess, degree)
+        poly_func = np.poly1d(coeffs)
+        
+        for _ in range(10): # Max 10 iterations
+            # Calculate residuals
+            y_model = poly_func(r_data)
+            residuals = y_data - y_model
+            
+            # Use MAD (Median Absolute Deviation) for robust sigma estimation
+            # std_dev is sensitive to outliers (peaks), so it inflates and fails to clip them.
+            resid_masked = residuals[mask_fit]
+            if len(resid_masked) == 0: break
+            
+            median_resid = np.median(resid_masked)
+            mad = np.median(np.abs(resid_masked - median_resid))
+            sigma = 1.4826 * mad
+            
+            # If sigma is tiny (perfect fit), use a small epsilon to avoid division/tight clipping
+            if sigma < 1e-6: sigma = 1e-6
+            
+            # Identify outliers (peaks are positive residuals)
+            # We only care about positive outliers (peaks), negative ones might be noise or dips
+            # But let's be robust and clip both, but mainly positive.
+            # "it should require to be more accurate" -> likely peaks are pulling it up.
+            
+            # Update mask: Keep points within 2.5 sigma (slightly relaxed)
+            # We relax the lower bound to avoid clipping dips too aggressively if any
+            new_mask = (residuals < 2.5 * sigma) & (residuals > -3.0 * sigma)
+            
+            # Combine with previous mask
+            new_mask = mask_fit & new_mask
+            
+            if np.sum(new_mask) < degree + 2:
+                break # Too few points
+                
+            if np.array_equal(new_mask, mask_fit):
+                break # Converged
+                
+            mask_fit = new_mask
+            
+            # Refit
+            coeffs = np.polyfit(r_data[mask_fit], y_data[mask_fit], degree)
+            poly_func = np.poly1d(coeffs)
+        
+        # Generate background for all radii
+        bg_profile = poly_func(radii_mm)
+        
+        # Clamp background to max(intensity) * 1.1 to avoid crazy values at r=0
+        # Also clamp to 0 at minimum
+        max_val = np.max(intensity)
+        bg_profile = np.clip(bg_profile, 0, max_val * 1.1)
+        
+        return bg_profile
+        
+    except Exception as e:
+        print(f"Background fit failed: {e}")
+        return np.zeros_like(intensity)
+

@@ -1,37 +1,30 @@
 import numpy as np
 from PIL import Image
-from scipy.ndimage import gaussian_filter, center_of_mass, label
+from scipy.ndimage import gaussian_filter, center_of_mass, label, median_filter, map_coordinates
+from scipy.optimize import minimize
 
-def remove_blue(image_path):
-    # 1. Open image and ensure it is RGB (3 channels) or RGBA (4 channels)
+def extract_blue_channel(image_path):
+    # 1. Open image and ensure it is RGB
     raw = Image.open(image_path).convert("RGB")
     
     # 2. Convert to NumPy array
     data = np.array(raw)
     
-    # 3. Subtract Green Background (Median)
-    # User request: "no other logic for image" - Removing background subtraction.
-    # g = data[:, :, 1]
-    # g_bg = np.percentile(g, 30)
-    # print(f"Green Background Subtraction: Removing median value {g_bg}")
-    # data[:, :, 1] = np.maximum(g.astype(int) - g_bg, 0).astype(np.uint8)
+    # 3. Extract Blue Channel
+    # User request: "use only blue for the anallysis"
+    blue_channel = data[:, :, 2]
     
-    # 4. Set the Blue channel to 0
-    # Syntax: [all rows, all columns, channel index 2] (0=R, 1=G, 2=B)
-    data[:, :, 2] = 0
-    
-    # 5. Convert back to Image and return
-    return Image.fromarray(data)
+    # 4. Return as Grayscale Image
+    return Image.fromarray(blue_channel, mode='L')
 
 def load_and_preprocess_image(image_path):
     """
-    Loads an image, converts to grayscale, and inverts it.
+    Loads an image, extracts the blue channel, and inverts it.
     """
     try:
-        # Use remove_blue to get the RGB image with Blue=0
-        img_no_blue_rgb = remove_blue(image_path)
-        # Convert to grayscale for processing
-        img = img_no_blue_rgb.convert('L')
+        # Use extract_blue_channel to get the Blue channel as grayscale
+        img = extract_blue_channel(image_path)
+        # It's already grayscale ('L')
     except FileNotFoundError:
         print(f"Error: File {image_path} not found.")
         return None, None, None, None
@@ -41,21 +34,71 @@ def load_and_preprocess_image(image_path):
     # User request: "OK, the image should be inverted"
     img_inverted = 255 - img_arr
     
-    # Create inverted image for saving (visuals might still expect white background?)
-    # Actually, for visuals, we usually want bright rings on dark background too.
+    # Create inverted image for saving
     img_inverted_pil = Image.fromarray(img_inverted.astype(np.uint8))
     
-    return img_arr, img_inverted, img_no_blue_rgb, img_inverted_pil
+    # We return 'img' as the 3rd argument (replacing the old img_no_blue_rgb)
+    # It is now the "preprocessed" image (Blue Channel)
+    return img_arr, img_inverted, img, img_inverted_pil
+
+def find_center_optimization(img, initial_guess):
+    """
+    Refines the center by minimizing the variance along concentric rings (Angular Variance).
+    Uses a polar transform sampled via bilinear interpolation for smoothness.
+    """
+    h, w = img.shape
+    
+    # Pre-calculate grid for polar transform (normalized)
+    # We'll sample a fixed number of radii and angles
+    n_radii = min(h, w) // 2
+    n_angles = 360
+    
+    # r and theta coordinates
+    r = np.linspace(0, n_radii, n_radii)
+    theta = np.linspace(0, 2*np.pi, n_angles, endpoint=False)
+    
+    r_grid, theta_grid = np.meshgrid(r, theta)
+    
+    def objective(center):
+        cx, cy = center
+        # Penalty for going out of bounds
+        if not (0 <= cx < w and 0 <= cy < h):
+            return 1e9
+            
+        # Convert polar to cartesian based on CURRENT center
+        x_sample = cx + r_grid * np.cos(theta_grid)
+        y_sample = cy + r_grid * np.sin(theta_grid)
+        
+        # Sample image using bilinear interpolation (order=1)
+        # mode='constant', cval=0 handles out of bounds
+        polar_img = map_coordinates(img, [y_sample, x_sample], order=1, mode='constant', cval=0.0)
+        
+        # Calculate Radial Profile (Mean along theta)
+        # Ideally, for a centered ring, intensity is constant along theta.
+        # We want to maximize the "energy" or "contrast" of the radial profile.
+        # If rings are aligned, the peaks in the radial profile are highest.
+        # So we maximize sum(profile^2).
+        radial_profile = np.mean(polar_img, axis=0)
+        
+        # We want to MAXIMIZE energy, so minimize negative energy
+        energy = np.sum(radial_profile**2)
+        return -energy
+
+    # Run optimization
+    # Nelder-Mead is robust. Initial simplex size might need adjustment.
+    result = minimize(objective, initial_guess, method='Nelder-Mead', tol=0.1, options={'maxiter': 50, 'xatol': 0.1, 'fatol': 0.1})
+    
+    return result.x[0], result.x[1]
 
 def find_center(img_inverted):
     """
-    Finds the center of the diffraction pattern using the high-intensity contour method.
+    Finds the center of the diffraction pattern using the high-intensity contour method,
+    followed by Radial Symmetry Optimization.
     """
     # 1. Preprocess
     
     # Hot Pixel Filter (User request: "sharply differenct from it's average sourounding intensity")
     # We apply this BEFORE smoothing to remove single pixel spikes.
-    from scipy.ndimage import median_filter
     
     # Calculate local median (3x3 neighborhood)
     local_median = median_filter(img_inverted, size=3)
@@ -78,16 +121,24 @@ def find_center(img_inverted):
     
     centers_dict = {}
     
-    # 2. Find Center using Exponential Weighted CoM (96% Threshold)
-    # User request: "the exponential decay was better"
+    # 2. Find Initial Guess using Exponential Weighted CoM (Absolute Threshold 170)
+    # User request: "instead of taking the values as percentage of max intensity, take up to 170 of absolte intensity"
     try:
-        cx_contour, cy_contour, contour_mask = find_center_by_intensity_contour(img_smoothed, threshold_percent=0.92)
-        print(f"Exponential Weighted Center (96%): ({cx_contour:.2f}, {cy_contour:.2f})")
+        cx_contour, cy_contour, contour_mask = find_center_by_intensity_contour(img_smoothed, threshold_value=80)
+        print(f"Initial Guess (CoM): ({cx_contour:.2f}, {cy_contour:.2f})")
         
-        centers_dict['ExponentialWeighted'] = (cx_contour, cy_contour)
+        centers_dict['InitialGuess'] = (cx_contour, cy_contour)
         centers_dict['ContourMask'] = contour_mask
         
-        cx_final, cy_final = cx_contour, cy_contour
+        # 3. Refine using Radial Symmetry Optimization
+        # User request: "there must be some know good algrothim"
+        print("Refining center using Radial Symmetry Optimization...")
+        cx_opt, cy_opt = find_center_optimization(img_smoothed, (cx_contour, cy_contour))
+        print(f"Optimized Center: ({cx_opt:.2f}, {cy_opt:.2f})")
+        
+        centers_dict['Optimized'] = (cx_opt, cy_opt)
+        
+        cx_final, cy_final = cx_opt, cy_opt
         
     except Exception as e:
         print(f"Error finding center: {e}")
@@ -109,15 +160,16 @@ def find_center(img_inverted):
 
     return int(cx_final), int(cy_final), ring_radii, centers_dict
 
-def find_center_by_intensity_contour(img, threshold_percent=0.96, margin=50):
+def find_center_by_intensity_contour(img, threshold_value=170, margin=50):
     """
     Finds the center of mass using straight intensity weighting.
     Selects pixels ABOVE the threshold (signal) and keeps only the 
     connected component that contains the MAXIMUM intensity pixel.
     Ignores pixels within 'margin' distance from the edges.
     """
-    # 1. Find threshold (robustly)
-    threshold = np.percentile(img, threshold_percent * 100)
+    # 1. Find threshold (Absolute)
+    # User request: "take up to 170 of absolte intensity"
+    threshold = threshold_value
     
     # 2. Create mask (pixels ABOVE threshold - i.e., signal)
     mask = img >= threshold
@@ -131,7 +183,7 @@ def find_center_by_intensity_contour(img, threshold_percent=0.96, margin=50):
     mask[:, -margin:] = False
     
     if np.sum(mask) == 0:
-        raise ValueError(f"No pixels found above {threshold_percent*100}% intensity (after edge removal)")
+        raise ValueError(f"No pixels found above intensity {threshold_value} (after edge removal)")
         
     # 4. Filter for Component containing Max Intensity
     # "all of the points... should be together... close to the max intensity points"
@@ -186,11 +238,13 @@ def find_center_by_intensity_contour(img, threshold_percent=0.96, margin=50):
     
     # Shift values so max is 0 (avoids overflow)
     max_val = np.max(masked_img[mask])
-    weights = np.exp(masked_img - max_val)
+    # We multiply by 2 to make the decay faster, prioritizing the peak.
+    weights = np.exp((masked_img - max_val) * 2)
     
     # Apply mask
     weights = weights * mask
-    
+
+    # Calculate Center of Mass
     cy, cx = center_of_mass(weights)
     
     return cx, cy, mask
