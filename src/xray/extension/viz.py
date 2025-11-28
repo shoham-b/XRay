@@ -156,8 +156,8 @@ def save_emboldened_image(img_arr, base_name, output_dir):
     sharpened = np.clip(sharpened, 0, 255)
     
     plt.figure(figsize=(10, 10))
-    # Use 'nipy_spectral' for bold, high-contrast visualization
-    plt.imshow(sharpened, cmap='nipy_spectral')
+    # Use 'turbo' for smooth, high-contrast visualization
+    plt.imshow(sharpened, cmap='turbo')
     plt.axis('off')
     plt.title(f"Sharpened Intensity (Unsharp Mask)\nSample: {base_name}")
     
