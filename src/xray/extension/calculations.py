@@ -314,8 +314,26 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
             coeffs = np.polyfit(r_data[mask_fit], y_data[mask_fit], degree)
             poly_func = np.poly1d(coeffs)
         
+        # Calculate final residuals on the fit mask
+        y_model = poly_func(r_data)
+        residuals = y_data - y_model
+        resid_masked = residuals[mask_fit]
+        
+        # Calculate shift to ensure background is a lower envelope
+        # User request: "find it such that the graph is always above the fitted background"
+        # We use the 0.1th percentile of the residuals to find the "bottom" of the noise floor,
+        # robust against extreme outliers.
+        if len(resid_masked) > 0:
+            shift = np.percentile(resid_masked, 0.1)
+        else:
+            shift = 0.0
+
         # Generate background for all radii
         bg_profile = poly_func(radii_mm)
+        
+        # Shift background down
+        # shift is likely negative (the dip below the mean). Adding it moves the background down.
+        bg_profile = bg_profile + shift
         
         # Clamp background to max(intensity) * 1.1 to avoid crazy values at r=0
         # Also clamp to 0 at minimum

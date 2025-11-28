@@ -7,6 +7,10 @@ from . import image_processing as ip
 from . import calculations as calc
 from . import viz
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
+
 def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, wavelength_pm=71.1):
     """
     Analyzes X-ray film, generates plots, and saves results to a 'data' folder.
@@ -24,8 +28,8 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
 
     base_name = Path(image_path).stem
 
-    print(f"Processing: {image_path}")
-    print(f"Output directory: {base_output_dir.resolve()}")
+    logger.info(f"Processing: {image_path}")
+    logger.info(f"Output directory: {base_output_dir.resolve()}")
 
     # --- 1. Load and Preprocess Image ---
     # Now returns 4 values: img_arr, img_inverted (array), img_no_blue_rgb (PIL), img_inverted_pil (PIL)
@@ -43,7 +47,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # User request: "remove the calibration cache"
     # Use automated center finding directly
     center_x, center_y, ring_radii, centers_dict = ip.find_center(img_inverted)
-    print(f"Center found at: ({center_x}, {center_y})")
+    logger.info(f"Center found at: ({center_x}, {center_y})")
 
     # --- 3. Calculate Radial Profile ---
     radial_profile = ip.calculate_radial_profile(img_inverted, center_x, center_y)
@@ -75,13 +79,12 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     peak_indices, peak_properties, start_idx = calc.find_initial_peaks(profile_for_peaks, known_peak_indices=None)
     
     # We already have background and subtracted profile
-
     
     # --- 8. Sinc Fitting ---
     fitted_peaks = calc.fit_sinc_peaks(two_theta_deg, profile_subtracted, peak_indices, peak_properties)
     
     successful_fits = sum(1 for p in fitted_peaks if p is not None)
-    print(f"Detected {len(peak_indices)} peaks. Successfully fitted {successful_fits} peaks.")
+    logger.info(f"Detected {len(peak_indices)} peaks. Successfully fitted {successful_fits} peaks.")
 
     # --- 8. Calculate d-spacings ---
     # Define peak_angles and peak_intensities here
@@ -92,10 +95,10 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # Calculate peak radii in pixels for visualization
     # peak_indices are indices into the radial_profile array, which corresponds to pixel radius
     peak_radii_pixels = peak_indices
-    print(f"Peak radii (pixels): {peak_radii_pixels}")
+    logger.info(f"Peak radii (pixels): {peak_radii_pixels}")
     if len(peak_radii_pixels) > 0:
-        print(f"  Min radius: {np.min(peak_radii_pixels)}")
-        print(f"  Max radius: {np.max(peak_radii_pixels)}")
+        logger.info(f"  Min radius: {np.min(peak_radii_pixels)}")
+        logger.info(f"  Max radius: {np.max(peak_radii_pixels)}")
 
     # --- 9. Plotting ---
     # Save center plot to 'images' directory
@@ -194,10 +197,10 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         interactive_theta_fig, interactive_radius_fig, save_path_center,
         preprocessed_image_path=save_path_preprocessed
     )
-    print(f"2. {Path(save_path_r).as_uri()}")
-    print(f"3. {Path(save_path_theta).as_uri()}")
-    print(f"4. {Path(csv_path).as_uri()}")
-    print(f"5. {Path(html_path).as_uri()}")
+    logger.info(f"2. {Path(save_path_r).as_uri()}")
+    logger.info(f"3. {Path(save_path_theta).as_uri()}")
+    logger.info(f"4. {Path(csv_path).as_uri()}")
+    logger.info(f"5. {Path(html_path).as_uri()}")
 
     return {
         'base_name': base_name,

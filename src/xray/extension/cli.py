@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 
 from pathlib import Path
 from typing import Annotated
@@ -6,6 +7,10 @@ from typing import Annotated
 import typer
 import concurrent.futures
 from xray.extension.analysis import process_diffraction_image
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger("xray.extension")
 
 extension_cli = typer.Typer(
     help="Analyzes X-ray film, generates plots, and saves results.",
@@ -37,6 +42,9 @@ def analyze(
     """
     Analyzes X-ray film, generates plots, and saves results to a 'data' folder.
     """
+    # Ensure INFO logs are shown for single image analysis
+    logging.getLogger("xray.extension").setLevel(logging.INFO)
+    
     process_diffraction_image(
         image_path, phys_w_mm, phys_h_mm, distance_l_mm, wavelength_pm
     )
@@ -69,6 +77,8 @@ def analyze_dir(
     Analyzes all X-ray film images in a directory, generates plots, and saves results.
     """
 
+    # Suppress INFO logs for batch analysis to keep progress bar clean
+    logging.getLogger("xray.extension").setLevel(logging.WARNING)
     
     dir_path = Path(directory_path)
     
@@ -97,27 +107,40 @@ def analyze_dir(
     
     results_list = []
     
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        future_to_file = {
-            executor.submit(
-                process_diffraction_image, 
-                image_file, 
-                phys_w_mm, 
-                phys_h_mm, 
-                distance_l_mm, 
-                wavelength_pm
-            ): image_file for image_file in image_files
-        }
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+    ) as progress:
+        task = progress.add_task("[cyan]Processing images...", total=len(image_files))
         
-        for future in concurrent.futures.as_completed(future_to_file):
-            image_file = future_to_file[future]
-            try:
-                result = future.result()
-                typer.echo(f"Finished processing: {image_file.name}")
-                if result:
-                    results_list.append(result)
-            except Exception as e:
-                typer.echo(f"Error processing {image_file.name}: {e}")
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            future_to_file = {
+                executor.submit(
+                    process_diffraction_image, 
+                    image_file, 
+                    phys_w_mm, 
+                    phys_h_mm, 
+                    distance_l_mm, 
+                    wavelength_pm
+                ): image_file for image_file in image_files
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_file):
+                image_file = future_to_file[future]
+                try:
+                    result = future.result()
+                    # typer.echo(f"Finished processing: {image_file.name}") # Reduced verbosity with progress bar
+                    if result:
+                        results_list.append(result)
+                except Exception as e:
+                    typer.echo(f"Error processing {image_file.name}: {e}")
+                finally:
+                    progress.advance(task)
     
     if results_list:
         from xray.extension import viz
@@ -143,11 +166,11 @@ def analyze_dir(
             viz.create_montage(center_paths, montage_path)
             typer.echo(f"Generated center montage: {montage_path.as_uri()}")
 
-        # Create montage of rings plots (Comparison: Original vs Rings)
+        # Create montage of rings plots (Comparison: Emboldened vs Rings)
         rings_paths = []
         for res in results_list:
-            if res.get('preprocessed_image_path') and res.get('plot_rings_path'):
-                rings_paths.append(res['preprocessed_image_path'])
+            if res.get('plot_emboldened_path') and res.get('plot_rings_path'):
+                rings_paths.append(res['plot_emboldened_path'])
                 rings_paths.append(res['plot_rings_path'])
             elif res.get('plot_rings_path'):
                 rings_paths.append(res['plot_rings_path'])

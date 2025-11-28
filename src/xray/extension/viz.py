@@ -132,8 +132,10 @@ def save_emboldened_image(img_arr, base_name, output_dir):
     """
     Creates a visualization with sharpening to 'embolden' the rings.
     User request: "expect the opposite of blurring to make it sharper"
+    Uses Black-Cyan colormap.
     """
     from scipy.ndimage import gaussian_filter
+    from matplotlib.colors import LinearSegmentedColormap
     import numpy as np
     
     img_float = img_arr.astype(float)
@@ -154,8 +156,8 @@ def save_emboldened_image(img_arr, base_name, output_dir):
     sharpened = np.clip(sharpened, 0, 255)
     
     plt.figure(figsize=(10, 10))
-    # Use 'inferno' to emphasize intensity
-    plt.imshow(sharpened, cmap='inferno')
+    # Use 'nipy_spectral' for bold, high-contrast visualization
+    plt.imshow(sharpened, cmap='nipy_spectral')
     plt.axis('off')
     plt.title(f"Sharpened Intensity (Unsharp Mask)\nSample: {base_name}")
     
