@@ -58,6 +58,21 @@ The primary goal of this project is to automate the process of analyzing XRD dat
 4. **View the report:**
    After the analysis is complete, you will find the interactive HTML report at `artifacts/index.html`.
 
+### Extension CLI
+
+The project also includes an extension CLI for analyzing X-ray diffraction images.
+
+**Analyze a single image:**
+```bash
+python -m xray.extension.cli analyze <path_to_image> --phys-w-mm 50.0 --phys-h-mm 50.0 --distance-l-mm 200.0
+```
+
+**Analyze a directory of images:**
+```bash
+python -m xray.extension.cli analyze-dir <path_to_directory>
+```
+This command processes all images in the directory in parallel and generates a combined report.
+
 ---
 
 ## 4. CI/CD
