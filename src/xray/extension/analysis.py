@@ -81,10 +81,8 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # We already have background and subtracted profile
     
     # --- 8. Sinc Fitting ---
-    fitted_peaks = calc.fit_sinc_peaks(two_theta_deg, profile_subtracted, peak_indices, peak_properties)
-    
-    successful_fits = sum(1 for p in fitted_peaks if p is not None)
-    logger.info(f"Detected {len(peak_indices)} peaks. Successfully fitted {successful_fits} peaks.")
+    # Disabled per user request
+    fitted_peaks = []
 
     # --- 8. Calculate d-spacings ---
     # Define peak_angles and peak_intensities here
