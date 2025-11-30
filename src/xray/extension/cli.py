@@ -59,11 +59,11 @@ def analyze_dir(
     phys_w_mm: Annotated[
         float,
         typer.Option(help="Physical width of the film in mm."),
-    ] = 50.0,
+    ] = 56.0, # +- 2
     phys_h_mm: Annotated[
         float,
         typer.Option(help="Physical height of the film in mm."),
-    ] = 50.0,
+    ] = 76.0, #+- 1 i cut 1 from top cause i fucking can and i think it is right
     distance_l_mm: Annotated[
         float,
         typer.Option(help="Distance L in mm."),
