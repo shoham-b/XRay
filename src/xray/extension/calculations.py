@@ -235,26 +235,21 @@ def calculate_d_spacings(two_theta_deg, wavelength_pm):
 
 def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degree=6, sigma=3.0, max_iterations=20):
     """
-    Fits a polynomial background to the intensity profile.
-    Ignores the beginning where intensity > saturation_threshold.
+    Fits a background to the intensity profile using iterative piecewise linear interpolation.
+    Renamed from 'polynomial' but kept for compatibility.
     """
     max_intensity = np.max(intensity)
     threshold_val = (saturation_threshold / 100.0) * max_intensity
     
     # Find the first index where intensity drops below the threshold
-    # We assume saturation happens at the start (small radii)
-    # We look for the first point that is *valid* (below threshold)
     valid_mask = intensity < threshold_val
     
     if np.any(valid_mask):
-        start_idx = np.argmax(valid_mask) # argmax returns first True index
+        start_idx = np.argmax(valid_mask)
     else:
-        start_idx = 0 # Fallback if everything is saturated (unlikely)
+        start_idx = 0
         
-    # User request: "trim the first 1 mm of data"
-    # Find index corresponding to 1mm
-    # We assume radii_mm is sorted and starts near 0
-    # radii_mm[idx] >= radii_mm[0] + 1.0
+    # Trim the first 1 mm of data
     if len(radii_mm) > 0:
         start_radius = radii_mm[0]
         trim_mask = radii_mm >= start_radius + 1.0
@@ -266,85 +261,95 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
     r_data = radii_mm[start_idx:]
     y_data = intensity[start_idx:]
 
-    if len(r_data) < degree + 2:
+    if len(r_data) < 2:
         return np.zeros_like(intensity), start_idx
 
     try:
-        # Iterative Sigma Clipping to ignore peaks
+        # 1. Smooth data strongly to define the "lower envelope" shape without noise
+        window_len = 51
+        if window_len > len(y_data):
+            window_len = len(y_data)
+        if window_len % 2 == 0:
+            window_len -= 1
+        if window_len < 5:
+            window_len = 5
+            
+        y_smooth_fit = savgol_filter(y_data, window_length=window_len, polyorder=3)
         
-        # 0. Robust Initial Guess using Median Filter
-        # (Percentile filter removed as it caused underestimation/bias)
-        y_guess = y_data
-            
-        # 1. Initial Fit
-        mask_fit = np.ones_like(y_data, dtype=bool)
-        coeffs = np.polyfit(r_data, y_guess, degree)
-        poly_func = np.poly1d(coeffs)
+        # 2. Compute Lower Convex Hull of (r_data, y_smooth_fit)
+        # Points must be sorted by x (r_data is sorted)
+        points = list(zip(r_data, y_smooth_fit))
         
-        for _ in range(max_iterations): 
-            # Calculate residuals
-            y_model = poly_func(r_data)
-            residuals = y_data - y_model
-            
-            # Use MAD (Median Absolute Deviation) for robust sigma estimation
-            resid_masked = residuals[mask_fit]
-            if len(resid_masked) == 0: break
-            
-            median_resid = np.median(resid_masked)
-            mad = np.median(np.abs(resid_masked - median_resid))
-            sigma_val = 1.4826 * mad
-            
-            if sigma_val < 1e-6: sigma_val = 1e-6
-            
-            # Update mask: Keep points within sigma threshold
-            new_mask = (residuals < sigma * sigma_val) & (residuals > -sigma * sigma_val)
-            
-            # Combine with previous mask
-            new_mask = mask_fit & new_mask
-            
-            if np.sum(new_mask) < degree + 2:
-                break # Too few points
-                
-            if np.array_equal(new_mask, mask_fit):
-                break # Converged
-                
-            mask_fit = new_mask
-            
-            # Refit
-            coeffs = np.polyfit(r_data[mask_fit], y_data[mask_fit], degree)
-            poly_func = np.poly1d(coeffs)
-        
-        # Calculate final residuals on the fit mask
-        y_model = poly_func(r_data)
-        residuals = y_data - y_model
-        resid_masked = residuals[mask_fit]
-        
-        # Calculate shift to ensure background is a lower envelope
-        # User request: "find it such that the graph is always above the fitted background"
-        # We use the 0.1th percentile of the residuals to find the "bottom" of the noise floor,
-        # robust against extreme outliers.
-        if len(resid_masked) > 0:
-            shift = np.percentile(resid_masked, 0.1)
-        else:
-            shift = 0.0
+        def cross_product(o, a, b):
+            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
 
-        # Generate background for all radii
-        bg_profile = poly_func(radii_mm)
+        hull = []
+        for p in points:
+            # For lower hull, we want left turns (convex). 
+            # If we make a right turn (or straight), we pop.
+            # Right turn means cross_product <= 0
+            while len(hull) >= 2 and cross_product(hull[-2], hull[-1], p) <= 0:
+                hull.pop()
+            hull.append(p)
+            
+        # 3. Enforce Monotonically Decreasing Constraint
+        # Since the hull is convex (slope is increasing), if the slope becomes positive,
+        # it will stay positive. We just need to find the point where it starts rising
+        # and flatten it from there.
         
-        # Shift background down
-        # shift is likely negative (the dip below the mean). Adding it moves the background down.
-        bg_profile = bg_profile + shift
+        final_hull = []
+        if len(hull) > 0:
+            final_hull.append(hull[0])
+            
+        for i in range(1, len(hull)):
+            p_prev = final_hull[-1]
+            p_curr = hull[i]
+            
+            slope = (p_curr[1] - p_prev[1]) / (p_curr[0] - p_prev[0])
+            
+            if slope > 0:
+                # Found a rising segment. 
+                # Since we want strictly decreasing (or flat), and we are convex,
+                # we effectively stop following the hull here and extend flat.
+                # However, we need to cover the full range of r_data.
+                # So we add a point at the end of r_data with the same y as p_prev
+                final_hull.append((r_data[-1], p_prev[1]))
+                break
+            else:
+                final_hull.append(p_curr)
+                
+        # If we didn't break, ensure we cover the end (hull usually includes the last point)
+        # But if the last point was popped during hull construction (because it was 'above' the line),
+        # the hull might end earlier? No, Monotone Chain always includes the last point.
+        # But our decreasing check might have stopped early.
         
-        # Clamp background to max(intensity) * 1.1 to avoid crazy values at r=0
-        # Also clamp to 0 at minimum
-        max_val = np.max(intensity)
-        bg_profile = np.clip(bg_profile, 0, max_val * 1.1)
+        # Unzip for interpolation
+        r_hull, y_hull = zip(*final_hull)
+        
+        # Final Interpolation
+        bg_valid = np.interp(r_data, r_hull, y_hull)
+        
+        # Construct full background
+        bg_profile = np.zeros_like(intensity)
+        bg_profile[start_idx:] = bg_valid
+        if len(bg_valid) > 0:
+             bg_profile[:start_idx] = bg_valid[0]
+        
+        # Clamp
+        bg_profile = np.clip(bg_profile, 0, max_intensity * 1.1)
         
         return bg_profile, start_idx
         
     except Exception as e:
         print(f"Background fit failed: {e}")
         return np.zeros_like(intensity), start_idx
+        
+
+        
+
+
+        
+
 
 def baseline_als(y, lam, p, niter=10):
     """

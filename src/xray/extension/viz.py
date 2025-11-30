@@ -184,7 +184,7 @@ def plot_rings_on_image(img_arr, center, radii_pixels, base_name, output_dir):
     # Plot rings
     for r in radii_pixels:
         # Create a circle patch
-        circle = patches.Circle((cx, cy), r, linewidth=2, edgecolor='r', facecolor='none', alpha=0.7)
+        circle = patches.Circle((cx, cy), r, linewidth=2, edgecolor='r', facecolor='none', alpha=0.7, linestyle='--')
         ax.add_patch(circle)
         
     plt.axis('off')
