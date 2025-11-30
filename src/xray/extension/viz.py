@@ -11,6 +11,7 @@ def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, prof
     if background_profile is not None:
         plt.plot(radii_mm, background_profile, color='green', linestyle='--', label='Background (Polynomial)')
     plt.plot(radii_mm, profile_subtracted, color='blue', linewidth=1.5, label='Subtracted Intensity')
+    plt.plot(radii_mm, profile_subtracted * 20, color='orange', linewidth=1, alpha=0.7, label='Subtracted (x20)')
     
     # Plot start line
     if start_radius_mm is not None and start_radius_mm > 0:
@@ -206,6 +207,7 @@ def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted,
     # Plot Raw and Smoothed Data
     plt.plot(two_theta_deg, profile_percent, color='lightgray', label='Raw Data', alpha=0.5)
     plt.plot(two_theta_deg, profile_subtracted, color='darkblue', linewidth=2, label='Subtracted Intensity')
+    plt.plot(two_theta_deg, profile_subtracted * 20, color='orange', linewidth=1, alpha=0.7, label='Subtracted (x20)')
     
     # Plot Background if available
     if background_profile is not None:
@@ -261,6 +263,14 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted,
         x=two_theta_deg, y=profile_subtracted,
         mode='lines', name='Subtracted Intensity',
         line=dict(color='darkblue', width=2)
+    ))
+
+    # 2.5 Subtracted Data (x20)
+    fig.add_trace(go.Scatter(
+        x=two_theta_deg, y=profile_subtracted * 20,
+        mode='lines', name='Subtracted (x20)',
+        line=dict(color='orange', width=1),
+        opacity=0.7
     ))
 
     # 3. Background
@@ -320,6 +330,13 @@ def create_interactive_radius_plot(radii_mm, profile_percent, background_profile
         x=radii_mm, y=profile_subtracted,
         mode='lines', name='Subtracted Intensity',
         line=dict(color='blue', width=1.5)
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=radii_mm, y=profile_subtracted * 20,
+        mode='lines', name='Subtracted (x20)',
+        line=dict(color='orange', width=1),
+        opacity=0.7
     ))
     
     # Add vertical line for start point
