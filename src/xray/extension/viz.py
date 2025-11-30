@@ -26,9 +26,10 @@ def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, prof
         plt.plot(peak_radii, peak_intensities, "x", color='red', markersize=8, label='Peaks')
         
         if peak_d_spacings is not None:
-            for r, i, d in zip(peak_radii, peak_intensities, peak_d_spacings):
-                plt.text(r, i + 2, f"d={d:.0f} pm",
-                         ha='center', va='bottom', fontsize=8, color='darkred', rotation=90)
+            pass
+            # for r, i, d in zip(peak_radii, peak_intensities, peak_d_spacings):
+            #     plt.text(r, i + 2, f"d={d:.0f} pm",
+            #              ha='center', va='bottom', fontsize=8, color='darkred', rotation=90)
         
     plt.title(f"Normalized Intensity vs. Distance ($r$)\nSample: {base_name}")
     plt.xlabel("Distance from Center $r$ (mm)")
@@ -218,7 +219,7 @@ def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted,
 
 
         plt.plot(angle, intensity, "x", color='red', markersize=8)
-        plt.text(angle, intensity + 2, f"d={d_val:.0f} pm\n({angle:.1f}°)",
+        plt.text(angle, intensity + 2, f"({angle:.1f}°)",
                  ha='center', va='bottom', fontsize=9, color='darkred', rotation=90)
 
     plt.title(
@@ -280,7 +281,7 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted,
             x=[angle], y=[intensity],
             mode='markers+text', name=f'Peak {i+1}',
             marker=dict(color='red', size=10, symbol='x'),
-            text=[f"d={d_val:.0f} pm<br>({angle:.1f}°)"],
+            text=[f"({angle:.1f}°)"],
             textposition="top center",
             showlegend=False
         ))
@@ -331,7 +332,8 @@ def create_interactive_radius_plot(radii_mm, profile_percent, background_profile
         
         hover_texts = []
         if peak_d_spacings is not None:
-            hover_texts = [f"d={d:.0f} pm<br>r={r:.2f} mm" for r, d in zip(peak_radii, peak_d_spacings)]
+            # hover_texts = [f"d={d:.0f} pm<br>r={r:.2f} mm" for r, d in zip(peak_radii, peak_d_spacings)]
+            hover_texts = [f"r={r:.2f} mm" for r in peak_radii]
         else:
             hover_texts = [f"r={r:.2f} mm" for r in peak_radii]
             
