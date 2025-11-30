@@ -376,6 +376,33 @@ def create_interactive_radius_plot(radii_mm, profile_percent, background_profile
     )
     return fig
 
+def create_combined_interactive_radius_plot(results_list):
+    """Creates a combined interactive Plotly figure for Intensity vs Radius for multiple images."""
+    fig = go.Figure()
+
+    for res in results_list:
+        if 'radii_mm' in res and 'profile_subtracted' in res:
+            base_name = res['base_name']
+            radii_mm = res['radii_mm']
+            profile_subtracted = res['profile_subtracted']
+            
+            fig.add_trace(go.Scatter(
+                x=radii_mm, y=profile_subtracted,
+                mode='lines', name=base_name,
+                line=dict(width=1.5),
+                opacity=0.8
+            ))
+
+    fig.update_layout(
+        title="Combined Intensity vs Radius (Subtracted)",
+        xaxis_title="Radius (mm)",
+        yaxis_title="Normalized Intensity (%)",
+        template="plotly_white",
+        hovermode="closest",
+        legend_title="Samples"
+    )
+    return fig
+
 def generate_html_report(output_dir, base_name, plot_r_path, plot_theta_path, csv_path, interactive_theta_fig=None, interactive_radius_fig=None, plot_center_path=None, preprocessed_image_path=None):
     """Generates an HTML report linking to the results."""
     
@@ -483,8 +510,33 @@ def generate_multi_image_report(output_dir, results_list):
     if not results_list:
         return None
 
+    # Create Combined Plot
+    combined_fig = create_combined_interactive_radius_plot(results_list)
+    combined_html = combined_fig.to_html(full_html=False, include_plotlyjs='cdn')
+
     tab_headers = []
     tab_contents = []
+
+    # Add Combined Tab
+    tab_headers.append(
+        '<li class="nav-item"><a class="nav-link active" id="tab-combined" data-toggle="tab" href="#content-combined" role="tab" aria-controls="content-combined" aria-selected="true">Combined Analysis</a></li>'
+    )
+    
+    tab_contents.append(f"""
+        <div class="tab-pane fade show active" id="content-combined" role="tabpanel" aria-labelledby="tab-combined">
+            <div class="container-fluid mt-3">
+                <div class="row">
+                    <div class="col-md-12 mb-4">
+                        <div class="plot">
+                            <h3>Combined Intensity vs. Radius</h3>
+                            <p>Click on legend items to show/hide traces. Double-click to isolate one.</p>
+                            {combined_html}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    """)
 
     for i, res in enumerate(results_list):
         base_name = res['base_name']
@@ -522,13 +574,15 @@ def generate_multi_image_report(output_dir, results_list):
         csv_link = Path(res['csv_path']).name
         
         # Tab Header
-        active_class = "active" if i == 0 else ""
+        # active_class = "active" if i == 0 else "" # Combined is now active
+        active_class = ""
         tab_headers.append(
-            f'<li class="nav-item"><a class="nav-link {active_class}" id="tab-{i}" data-toggle="tab" href="#content-{i}" role="tab" aria-controls="content-{i}" aria-selected="{str(i==0).lower()}">{base_name}</a></li>'
+            f'<li class="nav-item"><a class="nav-link {active_class}" id="tab-{i}" data-toggle="tab" href="#content-{i}" role="tab" aria-controls="content-{i}" aria-selected="{str(False).lower()}">{base_name}</a></li>'
         )
         
         # Tab Content
-        show_class = "show active" if i == 0 else ""
+        # show_class = "show active" if i == 0 else "" # Combined is now active
+        show_class = ""
         tab_contents.append(f"""
             <div class="tab-pane fade {show_class}" id="content-{i}" role="tabpanel" aria-labelledby="tab-{i}">
                 <div class="container-fluid mt-3">
@@ -611,6 +665,7 @@ def create_montage(image_paths, output_path, grid_width=None):
         return None
         
     try:
+        print(f"Creating montage for {len(image_paths)} images.")
         from PIL import Image
         import math
         
@@ -623,25 +678,29 @@ def create_montage(image_paths, output_path, grid_width=None):
         
         grid_height = math.ceil(n_images / grid_width)
         
-        # Assume all images are roughly same size, use the first one as reference
-        w, h = images[0].size
-        
+        # Find max dimensions
+        max_w = 0
+        max_h = 0
+        for img in images:
+            w, h = img.size
+            max_w = max(max_w, w)
+            max_h = max(max_h, h)
+            
         # Create blank canvas
-        montage_w = w * grid_width
-        montage_h = h * grid_height
+        montage_w = max_w * grid_width
+        montage_h = max_h * grid_height
         montage = Image.new('RGB', (montage_w, montage_h), (255, 255, 255))
         
         for i, img in enumerate(images):
-            # Resize if different? For now assume same size or paste as is
-            # If we want to be robust, resize to match first image
-            if img.size != (w, h):
-                img = img.resize((w, h))
-                
+            w, h = img.size
+            
+            # Calculate position
             row = i // grid_width
             col = i % grid_width
             
-            x = col * w
-            y = row * h
+            # Center the image in the cell
+            x = col * max_w + (max_w - w) // 2
+            y = row * max_h + (max_h - h) // 2
             
             montage.paste(img, (x, y))
             

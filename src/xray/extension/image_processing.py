@@ -3,27 +3,33 @@ from PIL import Image
 from scipy.ndimage import gaussian_filter, center_of_mass, label, median_filter, map_coordinates
 from scipy.optimize import minimize
 
-def extract_blue_channel(image_path):
+def extract_analysis_channel(image_path):
     # 1. Open image and ensure it is RGB
     raw = Image.open(image_path).convert("RGB")
     
     # 2. Convert to NumPy array
     data = np.array(raw)
     
-    # 3. Extract Blue Channel
-    # User request: "use only blue for the anallysis"
-    blue_channel = data[:, :, 2]
+    # 3. Extract Channels
+    # User request: "80% blue and 20% green"
+    blue_channel = data[:, :, 2].astype(float)
+    green_channel = data[:, :, 1].astype(float)
+    
+    combined_channel = 0.8 * blue_channel + 0.2 * green_channel
+    
+    # Clip to valid range and convert to uint8
+    combined_channel = np.clip(combined_channel, 0, 255).astype(np.uint8)
     
     # 4. Return as Grayscale Image
-    return Image.fromarray(blue_channel, mode='L')
+    return Image.fromarray(combined_channel, mode='L')
 
 def load_and_preprocess_image(image_path):
     """
-    Loads an image, extracts the blue channel, and inverts it.
+    Loads an image, extracts the analysis channel (80% Blue, 20% Green), and inverts it.
     """
     try:
-        # Use extract_blue_channel to get the Blue channel as grayscale
-        img = extract_blue_channel(image_path)
+        # Use extract_analysis_channel to get the combined channel as grayscale
+        img = extract_analysis_channel(image_path)
         # It's already grayscale ('L')
     except FileNotFoundError:
         print(f"Error: File {image_path} not found.")
@@ -38,7 +44,7 @@ def load_and_preprocess_image(image_path):
     img_inverted_pil = Image.fromarray(img_inverted.astype(np.uint8))
     
     # We return 'img' as the 3rd argument (replacing the old img_no_blue_rgb)
-    # It is now the "preprocessed" image (Blue Channel)
+    # It is now the "preprocessed" image (Combined Channel)
     return img_arr, img_inverted, img, img_inverted_pil
 
 def find_center_optimization(img, initial_guess):

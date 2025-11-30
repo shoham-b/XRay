@@ -214,5 +214,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         'preprocessed_image_path': save_path_preprocessed,
         'csv_path': csv_path,
         'interactive_theta_fig': interactive_theta_fig,
-        'interactive_radius_fig': interactive_radius_fig
+        'interactive_radius_fig': interactive_radius_fig,
+        'radii_mm': radii_mm,
+        'profile_subtracted': profile_subtracted
     }

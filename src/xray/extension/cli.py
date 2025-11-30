@@ -95,7 +95,7 @@ def analyze_dir(
     
     # Find all image files
     image_files = [
-        f for f in dir_path.iterdir() 
+        f for f in dir_path.rglob('*') 
         if f.is_file() and f.suffix.lower() in image_extensions
     ]
     
@@ -119,16 +119,39 @@ def analyze_dir(
         task = progress.add_task("[cyan]Processing images...", total=len(image_files))
         
         with concurrent.futures.ProcessPoolExecutor() as executor:
-            future_to_file = {
-                executor.submit(
+            future_to_file = {}
+            
+            # Custom distance mapping
+            distance_mapping = {
+                "7_20": 20.0,
+                "liquid": 10.0,
+                "solid": 15.0,
+                "salt": 15.0,
+                "10_1": 20.0,
+                "euctic": 15.0,
+                "eutectic": 15.0,
+            }
+
+            for image_file in image_files:
+                # Determine distance
+                current_distance = distance_l_mm
+                fname_lower = image_file.name.lower()
+                
+                for key, dist in distance_mapping.items():
+                    if key in fname_lower:
+                        current_distance = dist
+                        # progress.console.print(f"Using distance {current_distance}mm for {image_file.name}")
+                        break
+                
+                future = executor.submit(
                     process_diffraction_image, 
                     image_file, 
                     phys_w_mm, 
                     phys_h_mm, 
-                    distance_l_mm, 
+                    current_distance, 
                     wavelength_pm
-                ): image_file for image_file in image_files
-            }
+                )
+                future_to_file[future] = image_file
             
             for future in concurrent.futures.as_completed(future_to_file):
                 image_file = future_to_file[future]
@@ -152,6 +175,11 @@ def analyze_dir(
         combined_report_path = viz.generate_multi_image_report(output_dir, results_list)
         if combined_report_path:
              typer.echo(f"\nGenerated combined report: {combined_report_path.as_uri()}")
+        
+        # Debug: Print results list
+        typer.echo(f"Results list contains {len(results_list)} items:")
+        for res in results_list:
+            typer.echo(f" - {res['base_name']}")
 
         # Create montage of center plots (Comparison: Pixels vs Clean)
         center_paths = []
@@ -199,4 +227,4 @@ def analyze_dir(
             viz.create_montage(theta_paths, theta_montage_path)
             typer.echo(f"Generated 2-theta plots montage: {theta_montage_path.as_uri()}")
 
-    typer.echo(f"\nCompleted processing {len(image_files)} image(s).")
+    typer.echo(f"\nCompleted processing {len(results_list)}/{len(image_files)} image(s).")
