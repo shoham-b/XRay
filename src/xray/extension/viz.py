@@ -215,16 +215,7 @@ def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted,
         intensity = peak_intensities[i]
         d_val = d_spacings_pm[i]
         
-        # Plot Sinc Fit if available
-        if fitted_peaks and i < len(fitted_peaks) and fitted_peaks[i] is not None:
-            popt = fitted_peaks[i]
-            # Generate points for the fit curve
-            x_fit = np.linspace(angle - 2, angle + 2, 100)
-            y_fit = sinc_func(x_fit, *popt)
-            
-            # Interpolate background at x_fit
-            bg_at_fit = np.interp(x_fit, two_theta_deg, background_profile) if background_profile is not None else 0
-            plt.plot(x_fit, y_fit + bg_at_fit, color='orange', linewidth=2, linestyle='-')
+
 
         plt.plot(angle, intensity, "x", color='red', markersize=8)
         plt.text(angle, intensity + 2, f"d={d_val:.0f} pm\n({angle:.1f}°)",
@@ -294,22 +285,7 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted,
             showlegend=False
         ))
 
-        # Sinc Fit
-        if fitted_peaks and i < len(fitted_peaks) and fitted_peaks[i] is not None:
-            popt = fitted_peaks[i]
-            x_fit = np.linspace(angle - 2, angle + 2, 100)
-            # popt now includes offset
-            y_fit = sinc_func(x_fit, *popt)
-            # y_fit includes the offset from the fit (which models local bg residual)
-            # We add the global background to it
-            bg_at_fit = np.interp(x_fit, two_theta_deg, background_profile) if background_profile is not None else 0
-            
-            fig.add_trace(go.Scatter(
-                x=x_fit, y=y_fit + bg_at_fit,
-                mode='lines', name=f'Fit Peak {i+1}',
-                line=dict(color='orange', width=2),
-                showlegend=True
-            ))
+
 
     fig.update_layout(
         title=f"Diffraction Pattern: Intensity vs. 2θ - {base_name}",

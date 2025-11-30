@@ -265,11 +265,65 @@ def calculate_radial_profile(img_inverted, center_x, center_y):
     r_pixels = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
     r_pixels_int = r_pixels.astype(int)
 
-    # Azimuthal integration (Average intensity at radius r)
-    tbin = np.bincount(r_pixels_int.ravel(), img_inverted.ravel())
-    nr = np.bincount(r_pixels_int.ravel())
-    nr[nr == 0] = 1
-    radial_profile = tbin / nr
+    # Azimuthal integration (Trimmed Mean: Top 1%, Bottom 5%)
+    # 1. Flatten and sort by radius
+    r_flat = r_pixels_int.ravel()
+    i_flat = img_inverted.ravel()
+    
+    sort_idx = np.argsort(r_flat)
+    r_sorted = r_flat[sort_idx]
+    i_sorted = i_flat[sort_idx]
+    
+    # 2. Group by radius and calculate trimmed mean
+    unique_r, unique_indices, unique_counts = np.unique(r_sorted, return_index=True, return_counts=True)
+    
+    # Initialize profile
+    max_r_val = unique_r[-1]
+    radial_profile = np.zeros(max_r_val + 1)
+    
+    for r_val, start_idx, count in zip(unique_r, unique_indices, unique_counts):
+        # Extract pixels for this radius
+        values = i_sorted[start_idx : start_idx + count]
+        
+        # Sort intensities to perform trimming
+        values_sorted = np.sort(values)
+        
+        n = count
+        if n > 20: # Only trim if we have enough pixels
+            # Conditional Top Trim (1%)
+            trim_top_count = int(n * 0.01)
+            if trim_top_count > 0:
+                # Check if max is an outlier compared to the threshold value
+                # Threshold value is at index n - 1 - trim_top_count
+                threshold_idx = n - 1 - trim_top_count
+                if values_sorted[-1] > 1.5 * values_sorted[threshold_idx]:
+                    end_idx = n - trim_top_count
+                else:
+                    end_idx = n
+            else:
+                end_idx = n
+                
+            # Conditional Bottom Trim (5%)
+            trim_bottom_count = int(n * 0.05)
+            if trim_bottom_count > 0:
+                # Check if 5th percentile is significantly higher than min (indicating min is an outlier/artifact)
+                # Threshold value is at index trim_bottom_count
+                if values_sorted[trim_bottom_count] > 1.5 * values_sorted[0]:
+                    start_slice_idx = trim_bottom_count
+                else:
+                    start_slice_idx = 0
+            else:
+                start_slice_idx = 0
+                
+            # Ensure we have data remaining
+            if end_idx > start_slice_idx:
+                sliced_values = values_sorted[start_slice_idx : end_idx]
+                radial_profile[r_val] = np.mean(sliced_values)
+            else:
+                radial_profile[r_val] = np.mean(values)
+        else:
+            # Too few pixels, just take mean
+            radial_profile[r_val] = np.mean(values)
     
     # Limit to the nearest edge
     # User request: "the max radius shown in the graphs should be the smalles r that the whole circle fits"
