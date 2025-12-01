@@ -71,8 +71,9 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # Calculate start radius for visualization
     start_radius_mm = radii_mm[start_idx] if start_idx < len(radii_mm) else 0
     
-    # Use subtracted profile for peak finding (no smoothing as requested)
-    profile_for_peaks = profile_subtracted
+    # Use subtracted profile for peak finding
+    # User request: "apply smoothing before the peak finding"
+    profile_for_peaks = calc.smooth_profile(profile_subtracted, window=11)
     
     # --- 7. Peak Finding ---
     # Find peaks in the subtracted data
@@ -164,8 +165,8 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         'Intensity_Raw': radial_profile,
         'Intensity_Normalized_Percent': profile_percent,
         'Intensity_Background': background_profile,
-        'Intensity_Subtracted': profile_subtracted,
-        'Intensity_Smoothed': profile_for_peaks    })
+        'Intensity_Subtracted': profile_subtracted
+    })
 
     csv_path = base_output_dir / f"{base_name}_analysis_data.csv"
     df.to_csv(csv_path, index=False)
@@ -185,8 +186,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         base_name,
         start_radius_mm=start_radius_mm,
         peak_radii=peak_radii_mm,
-        peak_d_spacings=peak_d_spacings,
-        profile_smoothed=profile_for_peaks        
+        peak_d_spacings=peak_d_spacings
     )
     
     save_path_preprocessed = images_dir / f"{base_name}_preprocessed.png"
