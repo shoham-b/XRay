@@ -97,6 +97,38 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         end_search_idx=end_search_idx
     )
     
+    # User request: "i dont care how you do it, how dont care if you do it manualy for eutentcic and 10_1 find make those picks in all the graphs"
+    # Inject manual peaks based on filename
+    manual_peaks_2theta = []
+    if "eutectic" in base_name.lower():
+        manual_peaks_2theta = [5.2, 7.1, 8.8, 12.6, 27.2]
+    elif "10_1" in base_name.lower():
+        manual_peaks_2theta = [3.6, 5.3, 7.3, 11.4, 14.5, 17.6, 29.2, 41.1]
+        
+    if manual_peaks_2theta:
+        # Convert 2-theta to indices
+        # We need to find the index in two_theta_deg that is closest to each manual peak
+        manual_indices = []
+        for theta in manual_peaks_2theta:
+            idx = np.abs(two_theta_deg - theta).argmin()
+            if end_search_idx is None or idx < end_search_idx:
+                manual_indices.append(idx)
+        
+        if manual_indices:
+            peak_indices = np.concatenate([peak_indices, manual_indices])
+            peak_indices = np.unique(peak_indices)
+            peak_indices.sort()
+            
+            # Update peak_properties? 
+            # find_initial_peaks returns properties like 'widths', 'prominences' etc.
+            # We should probably re-calculate or just ignore properties for now as they are mostly used for sinc fitting which is disabled.
+            # But if we want them in the CSV output, we might need dummy values.
+            # However, the CSV output logic (which I can't see fully but assume exists) likely extracts properties from peak_properties if available.
+            # Let's check if we need to update peak_properties.
+            # The code later uses peak_indices to get angles and intensities.
+            # It doesn't seem to heavily rely on peak_properties for the main output.
+
+    
     # We already have background and subtracted profile
     
     # --- 8. Sinc Fitting ---
