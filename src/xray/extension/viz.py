@@ -1,17 +1,31 @@
+
 from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
+import logging
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from .calculations import sinc_func
 
-def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, output_dir, start_radius_mm=None, peak_radii=None, peak_d_spacings=None):
+logger = logging.getLogger(__name__)
+
+def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, output_dir, start_radius_mm=None, peak_radii=None, peak_d_spacings=None, profile_smoothed=None):
     """Plots Normalized Intensity vs. Radius (mm)."""
     plt.figure(figsize=(10, 6))
     plt.plot(radii_mm, profile_percent, color='lightgray', linewidth=1.5, label='Raw Intensity')
     if background_profile is not None:
         plt.plot(radii_mm, background_profile, color='green', linestyle='--', label='Background (Polynomial)')
-    plt.plot(radii_mm, profile_subtracted, color='blue', linewidth=1.5, label='Subtracted Intensity')
-    plt.plot(radii_mm, profile_subtracted * 20, color='orange', linewidth=1, alpha=0.7, label='Subtracted (x20)')
+    # User request: "only show the smotthed"
+    # plt.plot(radii_mm, profile_subtracted, color='blue', linewidth=1.0, alpha=0.5, label='Subtracted Intensity')
+    
+    if profile_smoothed is not None:
+        plt.plot(radii_mm, profile_smoothed, color='red', linewidth=1.5, label='Smoothed Intensity')
+        # User request: "and also the 20 should be of the smoothed"
+        plt.plot(radii_mm, profile_smoothed * 20, color='orange', linewidth=1, alpha=0.7, label='Smoothed (x20)')
+    else:
+        # Fallback if no smoothed provided
+        plt.plot(radii_mm, profile_subtracted, color='blue', linewidth=1.0, alpha=0.5, label='Subtracted Intensity')
+        plt.plot(radii_mm, profile_subtracted * 20, color='orange', linewidth=1, alpha=0.7, label='Subtracted (x20)')
     
     # Plot start line
     if start_radius_mm is not None and start_radius_mm > 0:
@@ -309,7 +323,7 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted,
     
     return fig
 
-def create_interactive_radius_plot(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, start_radius_mm=None, peak_radii=None, peak_d_spacings=None):
+def create_interactive_radius_plot(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, start_radius_mm=None, peak_radii=None, peak_d_spacings=None, profile_smoothed=None):
     """Creates an interactive Plotly figure for Intensity vs Radius."""
     fig = go.Figure()
 
@@ -326,18 +340,41 @@ def create_interactive_radius_plot(radii_mm, profile_percent, background_profile
             line=dict(color='green', width=1.5, dash='dash')
         ))
 
-    fig.add_trace(go.Scatter(
-        x=radii_mm, y=profile_subtracted,
-        mode='lines', name='Subtracted Intensity',
-        line=dict(color='blue', width=1.5)
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=radii_mm, y=profile_subtracted * 20,
-        mode='lines', name='Subtracted (x20)',
-        line=dict(color='orange', width=1),
-        opacity=0.7
-    ))
+    # User request: "only show the smotthed"
+    # fig.add_trace(go.Scatter(
+    #     x=radii_mm, y=profile_subtracted,
+    #     mode='lines', name='Subtracted Intensity',
+    #     line=dict(color='blue', width=1.0),
+    #     opacity=0.5
+    # ))
+    
+    if profile_smoothed is not None:
+        fig.add_trace(go.Scatter(
+            x=radii_mm, y=profile_smoothed,
+            mode='lines', name='Smoothed Intensity',
+            line=dict(color='red', width=1.5)
+        ))
+        
+        # User request: "and also the 20 should be of the smoothed"
+        fig.add_trace(go.Scatter(
+            x=radii_mm, y=profile_smoothed * 20,
+            mode='lines', name='Smoothed (x20)',
+            line=dict(color='orange', width=1),
+            opacity=0.7
+        ))
+    else:
+        # Fallback
+        fig.add_trace(go.Scatter(
+            x=radii_mm, y=profile_subtracted,
+            mode='lines', name='Subtracted Intensity',
+            line=dict(color='blue', width=1.5)
+        ))
+        fig.add_trace(go.Scatter(
+            x=radii_mm, y=profile_subtracted * 20,
+            mode='lines', name='Subtracted (x20)',
+            line=dict(color='orange', width=1),
+            opacity=0.7
+        ))
     
     # Add vertical line for start point
     if start_radius_mm is not None and start_radius_mm > 0:
@@ -660,7 +697,7 @@ def create_montage(image_paths, output_path, grid_width=None):
         return None
         
     try:
-        print(f"Creating montage for {len(image_paths)} images.")
+        logger.info(f"Creating montage for {len(image_paths)} images.")
         from PIL import Image
         import math
         
@@ -703,5 +740,5 @@ def create_montage(image_paths, output_path, grid_width=None):
         return output_path
         
     except Exception as e:
-        print(f"Error creating montage: {e}")
+        logger.error(f"Error creating montage: {e}")
         return None

@@ -1,9 +1,10 @@
 import numpy as np
-from scipy.signal import savgol_filter, find_peaks
+import logging
+from scipy.signal import savgol_filter, find_peaks, peak_widths
 from scipy.optimize import curve_fit
-from scipy.ndimage import median_filter, percentile_filter, gaussian_filter
-from scipy import sparse
-from scipy.sparse.linalg import spsolve
+from scipy.spatial import ConvexHull
+
+logger = logging.getLogger(__name__)
 
 def pixels_to_mm(radial_profile, phys_w_mm, phys_h_mm, img_shape):
     """Converts pixel coordinates to mm."""
@@ -47,7 +48,7 @@ def smooth_profile(profile_percent, window=15):
         return savgol_filter(profile_percent, window, 3)
     return profile_percent
 
-def find_initial_peaks(profile_smoothed, prominence=0.3, distance=10, known_peak_indices=None):
+def find_initial_peaks(profile_smoothed, prominence=0.05, distance=10, known_peak_indices=None):
     """
     Finds peaks in the smoothed profile.
     If known_peak_indices are provided (e.g. from ring fitting), uses them as a base.
@@ -205,7 +206,7 @@ def fit_sinc_peaks(x_data, y_data_subtracted, peak_indices, peak_properties):
         y_window = y_data_subtracted[mask]
         
         if len(x_window) < 5:
-            print(f"Skipping peak at {center_guess:.2f}: too few points ({len(x_window)})")
+            logger.warning(f"Skipping peak at {center_guess:.2f}: too few points ({len(x_window)})")
             fitted_peaks.append(None)
             continue
             
@@ -220,7 +221,7 @@ def fit_sinc_peaks(x_data, y_data_subtracted, peak_indices, peak_properties):
             fitted_peaks.append(popt)
             # print(f"Fit success for peak at {center_guess:.2f}")
         except Exception as e:
-            print(f"Fit failed for peak at {center_guess:.2f}: {e}")
+            logger.warning(f"Fit failed for peak at {center_guess:.2f}: {e}")
             fitted_peaks.append(None)
             
     return fitted_peaks
@@ -376,7 +377,7 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
         return bg_profile, start_idx
         
     except Exception as e:
-        print(f"Background fit failed: {e}")
+        logger.warning(f"Background fit failed: {e}")
         return np.zeros_like(intensity), start_idx
         
 

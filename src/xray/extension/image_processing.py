@@ -1,7 +1,10 @@
 import numpy as np
+import logging
 from PIL import Image
 from scipy.ndimage import gaussian_filter, center_of_mass, label, median_filter, map_coordinates
 from scipy.optimize import minimize
+
+logger = logging.getLogger(__name__)
 
 def extract_analysis_channel(image_path):
     # 1. Open image and ensure it is RGB
@@ -32,7 +35,7 @@ def load_and_preprocess_image(image_path):
         img = extract_analysis_channel(image_path)
         # It's already grayscale ('L')
     except FileNotFoundError:
-        print(f"Error: File {image_path} not found.")
+        logger.error(f"Error: File {image_path} not found.")
         return None, None, None, None
 
     img_arr = np.array(img)
@@ -131,28 +134,29 @@ def find_center(img_inverted):
     # User request: "instead of taking the values as percentage of max intensity, take up to 170 of absolte intensity"
     try:
         cx_contour, cy_contour, contour_mask = find_center_by_intensity_contour(img_smoothed, threshold_value=80)
-        print(f"Initial Guess (CoM): ({cx_contour:.2f}, {cy_contour:.2f})")
+        logger.info(f"Initial Guess (CoM): ({cx_contour:.2f}, {cy_contour:.2f})")
         
         centers_dict['InitialGuess'] = (cx_contour, cy_contour)
         centers_dict['ContourMask'] = contour_mask
         
         # 3. Refine using Radial Symmetry Optimization
         # User request: "there must be some know good algrothim"
-        print("Refining center using Radial Symmetry Optimization...")
-        cx_opt, cy_opt = find_center_optimization(img_smoothed, (cx_contour, cy_contour))
-        print(f"Optimized Center: ({cx_opt:.2f}, {cy_opt:.2f})")
+        logger.info("Refining center using Radial Symmetry Optimization...")
+        
+        cx_opt, cy_opt = optimize_center_radial_symmetry(img_smoothed, (cx_contour, cy_contour))
+        logger.info(f"Optimized Center: ({cx_opt:.2f}, {cy_opt:.2f})")
         
         centers_dict['Optimized'] = (cx_opt, cy_opt)
         
         cx_final, cy_final = cx_opt, cy_opt
         
     except Exception as e:
-        print(f"Error finding center: {e}")
+        logger.error(f"Error finding center: {e}")
         h, w = img_inverted.shape
         cx_final, cy_final = w / 2.0, h / 2.0
         centers_dict['Fallback'] = (cx_final, cy_final)
 
-    print(f"Final Center: ({cx_final:.2f}, {cy_final:.2f})")
+    logger.info(f"Final Center: ({cx_final:.2f}, {cy_final:.2f})")
     
     # Calculate ring radii for visualization/analysis
     try:
@@ -210,7 +214,7 @@ def find_center_by_intensity_contour(img, threshold_value=170, margin=50):
         
         if target_label == 0:
             # This shouldn't happen if we searched in masked_img, but safety first
-            print("Warning: Max intensity pixel not in mask. Falling back to largest component.")
+            logger.warning("Warning: Max intensity pixel not in mask. Falling back to largest component.")
             counts = np.bincount(labeled_array.ravel())
             counts[0] = 0
             target_label = np.argmax(counts)
