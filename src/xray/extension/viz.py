@@ -55,7 +55,11 @@ def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, prof
     if np.max(radii_mm) < 17.0:
         max_r = np.max(radii_mm)
     plt.xlim(0, max_r)
-    plt.ylim(0, 105)
+    # User request: "in the radius plots make the y axis logaritmic"
+    plt.yscale('log')
+    # plt.ylim(0, 105) # ylim doesn't make sense with log scale if 0 is present. 
+    # Let's set a reasonable min for log scale, e.g. 0.1 or 1
+    plt.ylim(bottom=0.1)
     plt.grid(True, alpha=0.5, linestyle='--')
     plt.legend()
 
