@@ -75,9 +75,20 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # User request: "apply smoothing before the peak finding"
     profile_for_peaks = calc.smooth_profile(profile_subtracted, window=11)
     
+    # Calculate end index for 17mm
+    # radii_mm is sorted
+    end_search_idx = np.searchsorted(radii_mm, 17.0)
+    if end_search_idx >= len(radii_mm):
+        end_search_idx = None
+        
     # --- 7. Peak Finding ---
     # Find peaks in the subtracted data
-    peak_indices, peak_properties, _ = calc.find_initial_peaks(profile_for_peaks, known_peak_indices=None, start_search_idx=start_idx)
+    peak_indices, peak_properties, _ = calc.find_initial_peaks(
+        profile_for_peaks, 
+        known_peak_indices=None, 
+        start_search_idx=start_idx,
+        end_search_idx=end_search_idx
+    )
     
     # We already have background and subtracted profile
     

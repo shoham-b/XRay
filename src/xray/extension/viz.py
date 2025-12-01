@@ -49,7 +49,12 @@ def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, prof
     plt.title(f"Normalized Intensity vs. Distance ($r$)\nSample: {base_name}")
     plt.xlabel("Distance from Center $r$ (mm)")
     plt.ylabel("Normalized Intensity (%)")
-    plt.xlim(0, np.max(radii_mm))
+    # User request: "update all graphs of r to show data until 20 mm also"
+    # User request: "lets do 17"
+    max_r = 17.0
+    if np.max(radii_mm) < 17.0:
+        max_r = np.max(radii_mm)
+    plt.xlim(0, max_r)
     plt.ylim(0, 105)
     plt.grid(True, alpha=0.5, linestyle='--')
     plt.legend()
@@ -425,7 +430,8 @@ def create_interactive_radius_plot(radii_mm, profile_percent, background_profile
         xaxis_title="Radius (mm)",
         yaxis_title="Normalized Intensity (%)",
         template="plotly_white",
-        hovermode="x unified"
+        hovermode="x unified",
+        xaxis=dict(range=[0, 17])
     )
     return fig
 
@@ -461,7 +467,8 @@ def create_combined_interactive_radius_plot(results_list):
         yaxis_title="Normalized Intensity (%)",
         template="plotly_white",
         hovermode="closest",
-        legend_title="Samples"
+        legend_title="Samples",
+        xaxis=dict(range=[0, 17])
     )
     return fig
 

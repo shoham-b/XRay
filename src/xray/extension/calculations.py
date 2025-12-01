@@ -48,7 +48,7 @@ def smooth_profile(profile_percent, window=15):
         return savgol_filter(profile_percent, window, 3)
     return profile_percent
 
-def find_initial_peaks(profile_smoothed, prominence=0.05, distance=10, known_peak_indices=None, start_search_idx=20):
+def find_initial_peaks(profile_smoothed, prominence=0.05, distance=10, known_peak_indices=None, start_search_idx=20, end_search_idx=None):
     """
     Finds peaks in the smoothed profile.
     If known_peak_indices are provided (e.g. from ring fitting), uses them as a base.
@@ -101,8 +101,11 @@ def find_initial_peaks(profile_smoothed, prominence=0.05, distance=10, known_pea
         # Standard peak finding
         peak_indices, peak_properties = find_peaks(profile_smoothed, prominence=prominence, distance=distance, width=1)
     
-    # Filter out peaks near the start (beam stop)
+    # Filter out peaks near the start (beam stop) and end
     valid_mask = peak_indices > start_search_idx
+    if end_search_idx is not None:
+        valid_mask &= peak_indices < end_search_idx
+        
     peak_indices = peak_indices[valid_mask]
     for key in peak_properties:
         peak_properties[key] = peak_properties[key][valid_mask]
