@@ -50,7 +50,7 @@ def load_and_preprocess_image(image_path):
     # It is now the "preprocessed" image (Combined Channel)
     return img_arr, img_inverted, img, img_inverted_pil
 
-def find_center_optimization(img, initial_guess):
+def optimize_center_radial_symmetry(img, initial_guess):
     """
     Refines the center by minimizing the variance along concentric rings (Angular Variance).
     Uses a polar transform sampled via bilinear interpolation for smoothness.
