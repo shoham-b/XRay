@@ -265,10 +265,14 @@ def calculate_radial_profile(img_inverted, center_x, center_y):
     r_pixels = np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
     r_pixels_int = r_pixels.astype(int)
 
+    # User request: "use the upper half of the circle"
+    # We filter for pixels where y < center_y (assuming y=0 is top)
+    mask = y < center_y
+    
     # Azimuthal integration (Trimmed Mean: Top 1%, Bottom 5%)
-    # 1. Flatten and sort by radius
-    r_flat = r_pixels_int.ravel()
-    i_flat = img_inverted.ravel()
+    # 1. Flatten and sort by radius (using only masked pixels)
+    r_flat = r_pixels_int[mask]
+    i_flat = img_inverted[mask]
     
     sort_idx = np.argsort(r_flat)
     r_sorted = r_flat[sort_idx]

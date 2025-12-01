@@ -65,7 +65,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # Reverting to Polynomial Fit with 99% threshold.
     # User request: "bring back my beloved 6 degree polinomial background fit"
     
-    background_profile, start_idx = calc.fit_polynomial_background(radii_mm, profile_percent, saturation_threshold=90, degree=6)
+    background_profile, start_idx = calc.fit_polynomial_background(radii_mm, profile_percent, saturation_threshold=95, degree=6)
     profile_subtracted = profile_percent - background_profile
     
     # Calculate start radius for visualization

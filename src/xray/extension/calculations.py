@@ -241,12 +241,30 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
     max_intensity = np.max(intensity)
     threshold_val = (saturation_threshold / 100.0) * max_intensity
     
-    # Find the first index where intensity drops below the threshold
-    valid_mask = intensity < threshold_val
+    # Find the start index for fitting (skip saturated region)
+    # Logic: Find the first saturated point, then find the first valid point after that.
+    # This handles cases like:
+    # 1. High -> Low (Saturation at start)
+    # 2. Low -> High -> Low (Beam stop then Saturation)
     
-    if np.any(valid_mask):
-        start_idx = np.argmax(valid_mask)
+    is_saturated = intensity >= threshold_val
+    
+    if np.any(is_saturated):
+        # Find start of first saturated region
+        first_sat_idx = np.argmax(is_saturated)
+        
+        # Check for valid data AFTER this saturation
+        is_valid_after = intensity[first_sat_idx:] < threshold_val
+        
+        if np.any(is_valid_after):
+            # Found valid data after saturation
+            offset = np.argmax(is_valid_after)
+            start_idx = first_sat_idx + offset
+        else:
+            # Saturated until the end
+            start_idx = len(intensity)
     else:
+        # No saturation found
         start_idx = 0
         
     # Trim the first 1 mm of data
@@ -328,6 +346,17 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
         
         # Final Interpolation
         bg_valid = np.interp(r_data, r_hull, y_hull)
+        
+        # User request: "apply smoothing to the convex to make it continues using that know algorithm"
+        # Apply Savitzky-Golay filter to smooth the corners
+        window_len = 51
+        if window_len > len(bg_valid):
+            window_len = len(bg_valid)
+        if window_len % 2 == 0:
+            window_len -= 1
+            
+        if window_len >= 5:
+            bg_valid = savgol_filter(bg_valid, window_length=window_len, polyorder=3)
         
         # Construct full background
         bg_profile = np.zeros_like(intensity)
