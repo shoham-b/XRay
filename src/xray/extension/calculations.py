@@ -3,6 +3,7 @@ import logging
 from scipy.signal import savgol_filter, find_peaks, peak_widths
 from scipy.optimize import curve_fit
 from scipy.spatial import ConvexHull
+from scipy.ndimage import minimum_filter
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,11 @@ def find_initial_peaks(profile_smoothed, prominence=0.05, distance=10, known_pea
         peak_indices, peak_properties = find_peaks(profile_smoothed, prominence=prominence, distance=distance, width=1)
     
     # Filter out peaks near the start (beam stop) and end
+    # User request: "find peaks at the begginign now , and just ignore the first peak"
+    
+    # If start_search_idx is small (meaning we are searching from the beginning),
+    # we should filter by index but also drop the very first peak found.
+    
     valid_mask = peak_indices > start_search_idx
     if end_search_idx is not None:
         valid_mask &= peak_indices < end_search_idx
@@ -109,6 +115,18 @@ def find_initial_peaks(profile_smoothed, prominence=0.05, distance=10, known_pea
     peak_indices = peak_indices[valid_mask]
     for key in peak_properties:
         peak_properties[key] = peak_properties[key][valid_mask]
+
+    # Drop the first peak if we have any and we are searching from the start
+    # (Assuming start_search_idx is small enough to include the first peak)
+    if len(peak_indices) > 0 and start_search_idx < 50: 
+        # Sort by index to be sure we drop the first one
+        sorted_order = np.argsort(peak_indices)
+        # We want to keep everything except the first one in sorted order
+        keep_indices = sorted_order[1:]
+        
+        peak_indices = peak_indices[keep_indices]
+        for key in peak_properties:
+            peak_properties[key] = peak_properties[key][keep_indices]
 
     return peak_indices, peak_properties, start_search_idx
 
@@ -236,10 +254,10 @@ def calculate_d_spacings(two_theta_deg, wavelength_pm):
     d_spacings = wavelength_pm / (2 * np.sin(theta_rad))
     return d_spacings
 
-def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degree=6, sigma=3.0, max_iterations=20):
+def fit_convex_hull_background(radii_mm, intensity, saturation_threshold=97, degree=6, sigma=3.0, max_iterations=20):
     """
     Fits a background to the intensity profile using iterative piecewise linear interpolation.
-    Renamed from 'polynomial' but kept for compatibility.
+    Renamed from 'polynomial' to 'convex_hull' to reflect the actual algorithm.
     """
     max_intensity = np.max(intensity)
     threshold_val = (saturation_threshold / 100.0) * max_intensity
@@ -292,6 +310,45 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
         return np.zeros_like(intensity), start_idx
 
     try:
+        # --- Part 1: Initial Region (Upper Convex Hull of Lower Envelope) ---
+        # User request: "Until then [start_idx], use an upside convex in the other direction"
+        # User request: "the first upward convex should also be below the graph"
+        bg_init_profile = np.zeros(start_idx)
+        
+        if start_idx > 2:
+            r_init = radii_mm[:start_idx]
+            y_init = intensity[:start_idx]
+            
+            # 1. Compute Lower Envelope (to ensure "below the graph")
+            # Use a window size appropriate for the data density
+            window_len_init = 11
+            if window_len_init > len(y_init): window_len_init = len(y_init)
+            
+            y_init_lower = minimum_filter(y_init, size=window_len_init)
+            
+            # 2. Compute Upper Convex Hull of this Lower Envelope
+            # Points sorted by x
+            points_init = list(zip(r_init, y_init_lower))
+            
+            def cross_product(o, a, b):
+                return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+            upper_hull = []
+            for p in points_init:
+                # For upper hull, we want right turns. 
+                # If we make a left turn (cross_product > 0), we pop.
+                # (Assuming standard coordinates where y increases upwards)
+                while len(upper_hull) >= 2 and cross_product(upper_hull[-2], upper_hull[-1], p) >= 0:
+                    upper_hull.pop()
+                upper_hull.append(p)
+            
+            # Interpolate Upper Hull
+            if len(upper_hull) > 0:
+                r_hull_init, y_hull_init = zip(*upper_hull)
+                bg_init_profile = np.interp(r_init, r_hull_init, y_hull_init)
+
+
+        # --- Part 2: Main Region (Lower Convex Hull) ---
         # 1. Smooth data strongly to define the "lower envelope" shape without noise
         window_len = 51
         if window_len > len(y_data):
@@ -307,8 +364,7 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
         # Points must be sorted by x (r_data is sorted)
         points = list(zip(r_data, y_smooth_fit))
         
-        def cross_product(o, a, b):
-            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+        # (cross_product defined above)
 
         hull = []
         for p in points:
@@ -370,8 +426,7 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
         # Construct full background
         bg_profile = np.zeros_like(intensity)
         bg_profile[start_idx:] = bg_valid
-        if len(bg_valid) > 0:
-             bg_profile[:start_idx] = bg_valid[0]
+        bg_profile[:start_idx] = bg_init_profile
         
         # Clamp
         bg_profile = np.clip(bg_profile, 0, max_intensity * 1.1)
