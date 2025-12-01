@@ -77,7 +77,7 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     
     # --- 7. Peak Finding ---
     # Find peaks in the subtracted data
-    peak_indices, peak_properties, start_idx = calc.find_initial_peaks(profile_for_peaks, known_peak_indices=None)
+    peak_indices, peak_properties, _ = calc.find_initial_peaks(profile_for_peaks, known_peak_indices=None, start_search_idx=start_idx)
     
     # We already have background and subtracted profile
     
