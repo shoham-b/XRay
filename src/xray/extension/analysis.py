@@ -66,9 +66,16 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     # User request: "bring back my beloved 6 degree polinomial background fit"
     
     background_profile, start_idx = calc.fit_convex_hull_background(radii_mm, profile_percent, saturation_threshold=90, degree=6)
+    # Subtract the background
     profile_subtracted = profile_percent - background_profile
     
-    # Calculate start radius for visualization
+    # User request: "after background fit add those lines"
+    # y-= np.min(y) # it just make sense what is negative intencity
+    # y[y> 100] = 100
+    profile_subtracted -= np.min(profile_subtracted)
+    profile_subtracted[profile_subtracted > 100] = 100
+    
+    # --- 6. Smoothing (Optional but good for peak finding) ---for visualization
     start_radius_mm = radii_mm[start_idx] if start_idx < len(radii_mm) else 0
     
     # Use subtracted profile for peak finding

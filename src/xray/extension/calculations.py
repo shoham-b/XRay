@@ -100,7 +100,16 @@ def find_initial_peaks(profile_smoothed, prominence=0.05, distance=10, known_pea
         
     else:
         # Standard peak finding
-        peak_indices, peak_properties = find_peaks(profile_smoothed, prominence=prominence, distance=distance, width=1)
+        # User request: "before finding peaks add to the graph min(data) so no point will have negative intensity"
+        # Ensure profile is positive before log
+        min_val = np.min(profile_smoothed)
+        if min_val <= 0:
+            profile_shifted = profile_smoothed - min_val + 1.0
+        else:
+            profile_shifted = profile_smoothed
+            
+        # User request: "try to find the peaks in logaritmic scale"
+        peak_indices, peak_properties = find_peaks(np.log2(profile_shifted), prominence=prominence, distance=distance, width=0.5)
     
     # Filter out peaks near the start (beam stop) and end
     # User request: "find peaks at the begginign now , and just ignore the first peak"
@@ -117,17 +126,9 @@ def find_initial_peaks(profile_smoothed, prominence=0.05, distance=10, known_pea
         peak_properties[key] = peak_properties[key][valid_mask]
 
     # Drop the first peak if we have any and we are searching from the start
-    # (Assuming start_search_idx is small enough to include the first peak)
-    if len(peak_indices) > 0 and start_search_idx < 50: 
-        # Sort by index to be sure we drop the first one
-        sorted_order = np.argsort(peak_indices)
-        # We want to keep everything except the first one in sorted order
-        keep_indices = sorted_order[1:]
-        
-        peak_indices = peak_indices[keep_indices]
-        for key in peak_properties:
-            peak_properties[key] = peak_properties[key][keep_indices]
-
+    # User request: "show all picks everytime, dont ignore first pick as you do today"
+    # Logic removed.
+    
     return peak_indices, peak_properties, start_search_idx
 
 def estimate_background_bridging(x_data, y_data, peak_indices, peak_properties, start_idx):

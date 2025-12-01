@@ -49,11 +49,40 @@ def main():
         if end_search_idx >= len(two_theta):
             end_search_idx = None
             
-        peak_indices, peak_props, _ = calc.find_initial_peaks(
-            intensity_smoothed,
-            start_search_idx=0,
-            end_search_idx=end_search_idx
-        )
+        # calc.find_initial_peaks now handles the log transformation internally.
+        # We just pass the linear signal (amplified if needed).
+        if label in ["ChCl", "Eutectic", "1 ChCL - 10 Urea"]:
+             signal_for_peaks = intensity_smoothed * 20
+        else:
+             signal_for_peaks = intensity_smoothed
+            
+        if label in ["Eutectic", "1 ChCL - 10 Urea"]:
+            # User request: "in eutenctic improve peak finding it is not, make for it the peak detenction find more peaks in area 0 to 10"
+            # Applying same logic to 10_1
+            idx_10 = np.searchsorted(two_theta, 10.0)
+            
+            p1, _, _ = calc.find_initial_peaks(
+                signal_for_peaks,
+                start_search_idx=0,
+                end_search_idx=idx_10,
+                prominence=0.01
+            )
+            
+            p2, _, _ = calc.find_initial_peaks(
+                signal_for_peaks,
+                start_search_idx=idx_10,
+                end_search_idx=end_search_idx,
+                prominence=0.05
+            )
+            
+            peak_indices = np.concatenate([p1, p2])
+            peak_indices = np.sort(np.unique(peak_indices))
+        else:
+            peak_indices, peak_props, _ = calc.find_initial_peaks(
+                signal_for_peaks,
+                start_search_idx=0,
+                end_search_idx=end_search_idx
+            )
         
         # Calculate fit error (estimated from noise)
         # We estimate noise as std(Intensity_Raw - Intensity_Smoothed)

@@ -58,12 +58,44 @@ def main():
         if end_search_idx >= len(two_theta):
             end_search_idx = None
             
-        # We find peaks on the smoothed data (scaling doesn't change peak location)
-        peak_indices, peak_props, _ = calc.find_initial_peaks(
-            intensity_smoothed,
-            start_search_idx=0,
-            end_search_idx=end_search_idx
-        )
+        # User request: "try to find the peaks in logaritmic scale"
+        # calc.find_initial_peaks now handles the log transformation internally.
+        if label in ["ChCl", "Eutectic", "1 ChCL - 10 Urea"]:
+             signal_for_peaks = intensity_to_plot # This is smoothed * 20
+        else:
+             signal_for_peaks = intensity_smoothed
+            
+        if label in ["Eutectic", "1 ChCL - 10 Urea"]:
+            # User request: "in eutenctic improve peak finding it is not, make for it the peak detenction find more peaks in area 0 to 10"
+            # User request: "plus for some reason you find much less picks now in 10_1 care to look at that?"
+            # Applying same logic to 10_1
+            idx_10 = np.searchsorted(two_theta, 10.0)
+            
+            # Pass 1: 0-10 degrees, high sensitivity (prominence=0.01)
+            p1, _, _ = calc.find_initial_peaks(
+                signal_for_peaks,
+                start_search_idx=0,
+                end_search_idx=idx_10,
+                prominence=0.01
+            )
+            
+            # Pass 2: >10 degrees, normal sensitivity (prominence=0.05)
+            p2, _, _ = calc.find_initial_peaks(
+                signal_for_peaks,
+                start_search_idx=idx_10,
+                end_search_idx=end_search_idx,
+                prominence=0.05
+            )
+            
+            peak_indices = np.concatenate([p1, p2])
+            peak_indices = np.sort(np.unique(peak_indices))
+            
+        else:
+            peak_indices, peak_props, _ = calc.find_initial_peaks(
+                signal_for_peaks,
+                start_search_idx=0,
+                end_search_idx=end_search_idx
+            )
         
         # Plot Line
         ax.plot(two_theta, intensity_to_plot, color=color, linewidth=1.5, label=label)
