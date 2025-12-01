@@ -259,7 +259,13 @@ def fit_polynomial_background(radii_mm, intensity, saturation_threshold=97, degr
         if np.any(is_valid_after):
             # Found valid data after saturation
             offset = np.argmax(is_valid_after)
-            start_idx = first_sat_idx + offset
+            # User request: "start the background fit, after a smal range of 10 below the required intensity"
+            # We add a buffer of 10 indices to ensure we are off the steep slope
+            start_idx = first_sat_idx + offset + 5
+            
+            # Ensure we don't go out of bounds
+            if start_idx >= len(intensity):
+                start_idx = len(intensity) - 1
         else:
             # Saturated until the end
             start_idx = len(intensity)
