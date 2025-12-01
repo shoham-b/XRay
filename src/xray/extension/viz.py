@@ -214,14 +214,19 @@ def plot_rings_on_image(img_arr, center, radii_pixels, base_name, output_dir):
 def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted, 
                              peak_angles, peak_intensities, d_spacings_pm, 
                              fitted_peaks, background_profile,
-                             base_name, distance_L_mm, output_dir, start_radius_mm=None):
+                             base_name, distance_L_mm, output_dir, start_radius_mm=None, profile_smoothed=None):
     """Plots Intensity vs. 2-Theta with d-spacings and fits."""
     plt.figure(figsize=(12, 7))
     
     # Plot Raw and Smoothed Data
     plt.plot(two_theta_deg, profile_percent, color='lightgray', label='Raw Data', alpha=0.5)
-    plt.plot(two_theta_deg, profile_subtracted, color='darkblue', linewidth=2, label='Subtracted Intensity')
-    plt.plot(two_theta_deg, profile_subtracted * 20, color='orange', linewidth=1, alpha=0.7, label='Subtracted (x20)')
+    
+    if profile_smoothed is not None:
+        plt.plot(two_theta_deg, profile_smoothed, color='red', linewidth=2, label='Smoothed Intensity')
+        plt.plot(two_theta_deg, profile_smoothed * 20, color='orange', linewidth=1, alpha=0.7, label='Smoothed (x20)')
+    else:
+        plt.plot(two_theta_deg, profile_subtracted, color='darkblue', linewidth=2, label='Subtracted Intensity')
+        plt.plot(two_theta_deg, profile_subtracted * 20, color='orange', linewidth=1, alpha=0.7, label='Subtracted (x20)')
     
     # Plot Background if available
     if background_profile is not None:
@@ -260,7 +265,7 @@ def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted,
 
 def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted, 
                             peak_angles, peak_intensities, d_spacings_pm, 
-                            fitted_peaks, background_profile, base_name, start_radius_mm=None):
+                            fitted_peaks, background_profile, base_name, start_radius_mm=None, profile_smoothed=None):
     """Creates an interactive Plotly figure."""
     fig = go.Figure()
 
@@ -272,20 +277,36 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted,
         opacity=0.5
     ))
 
-    # 2. Subtracted Data
-    fig.add_trace(go.Scatter(
-        x=two_theta_deg, y=profile_subtracted,
-        mode='lines', name='Subtracted Intensity',
-        line=dict(color='darkblue', width=2)
-    ))
+    if profile_smoothed is not None:
+        # 2. Smoothed Data
+        fig.add_trace(go.Scatter(
+            x=two_theta_deg, y=profile_smoothed,
+            mode='lines', name='Smoothed Intensity',
+            line=dict(color='red', width=2)
+        ))
+        
+        # 2.5 Smoothed Data (x20)
+        fig.add_trace(go.Scatter(
+            x=two_theta_deg, y=profile_smoothed * 20,
+            mode='lines', name='Smoothed (x20)',
+            line=dict(color='orange', width=1),
+            opacity=0.7
+        ))
+    else:
+        # 2. Subtracted Data
+        fig.add_trace(go.Scatter(
+            x=two_theta_deg, y=profile_subtracted,
+            mode='lines', name='Subtracted Intensity',
+            line=dict(color='darkblue', width=2)
+        ))
 
-    # 2.5 Subtracted Data (x20)
-    fig.add_trace(go.Scatter(
-        x=two_theta_deg, y=profile_subtracted * 20,
-        mode='lines', name='Subtracted (x20)',
-        line=dict(color='orange', width=1),
-        opacity=0.7
-    ))
+        # 2.5 Subtracted Data (x20)
+        fig.add_trace(go.Scatter(
+            x=two_theta_deg, y=profile_subtracted * 20,
+            mode='lines', name='Subtracted (x20)',
+            line=dict(color='orange', width=1),
+            opacity=0.7
+        ))
 
     # 3. Background
     if background_profile is not None:
@@ -413,13 +434,22 @@ def create_combined_interactive_radius_plot(results_list):
     fig = go.Figure()
 
     for res in results_list:
-        if 'radii_mm' in res and 'profile_subtracted' in res:
+        if 'radii_mm' in res:
             base_name = res['base_name']
             radii_mm = res['radii_mm']
-            profile_subtracted = res['profile_subtracted']
+            
+            # Prefer smoothed profile
+            if 'profile_smoothed' in res:
+                y_data = res['profile_smoothed']
+                name_suffix = " (Smoothed)"
+            elif 'profile_subtracted' in res:
+                y_data = res['profile_subtracted']
+                name_suffix = " (Subtracted)"
+            else:
+                continue
             
             fig.add_trace(go.Scatter(
-                x=radii_mm, y=profile_subtracted,
+                x=radii_mm, y=y_data,
                 mode='lines', name=base_name,
                 line=dict(width=1.5),
                 opacity=0.8

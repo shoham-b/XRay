@@ -148,14 +148,16 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         graphs_dir, 
         start_radius_mm=start_radius_mm,
         peak_radii=peak_radii_mm,
-        peak_d_spacings=peak_d_spacings
+        peak_d_spacings=peak_d_spacings,
+        profile_smoothed=profile_for_peaks
     )
     
     save_path_theta = viz.plot_intensity_vs_2theta(
         two_theta_deg, profile_percent, profile_subtracted,
         peak_angles, peak_intensities, d_spacings_pm,
         fitted_peaks, background_profile,
-        base_name, distance_L_mm, graphs_dir, start_radius_mm=start_radius_mm
+        base_name, distance_L_mm, graphs_dir, start_radius_mm=start_radius_mm,
+        profile_smoothed=profile_for_peaks
     )
 
     # --- 10. Save Data to CSV ---
@@ -165,7 +167,8 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         'Intensity_Raw': radial_profile,
         'Intensity_Normalized_Percent': profile_percent,
         'Intensity_Background': background_profile,
-        'Intensity_Subtracted': profile_subtracted
+        'Intensity_Subtracted': profile_subtracted,
+        'Intensity_Smoothed': profile_for_peaks
     })
 
     csv_path = base_output_dir / f"{base_name}_analysis_data.csv"
@@ -175,7 +178,8 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
     interactive_theta_fig = viz.create_interactive_plot(
         two_theta_deg, profile_percent, profile_subtracted,
         peak_angles, peak_intensities, d_spacings_pm,
-        fitted_peaks, background_profile, base_name, start_radius_mm=start_radius_mm
+        fitted_peaks, background_profile, base_name, start_radius_mm=start_radius_mm,
+        profile_smoothed=profile_for_peaks
     )
     
     interactive_radius_fig = viz.create_interactive_radius_plot(
@@ -215,5 +219,6 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         'interactive_theta_fig': interactive_theta_fig,
         'interactive_radius_fig': interactive_radius_fig,
         'radii_mm': radii_mm,
-        'profile_subtracted': profile_subtracted
+        'profile_subtracted': profile_subtracted,
+        'profile_smoothed': profile_for_peaks
     }
