@@ -228,7 +228,7 @@ def plot_intensity_vs_2theta(two_theta_deg, profile_percent, profile_subtracted,
     plt.figure(figsize=(12, 7))
     
     # Plot Raw and Smoothed Data
-    plt.plot(two_theta_deg, profile_percent, color='lightgray', label='Raw Data', alpha=0.5)
+    plt.plot(two_theta_deg, profile_percent, color='black', label='Raw Data', alpha=0.5)
     
     if profile_smoothed is not None:
         plt.plot(two_theta_deg, profile_smoothed, color='red', linewidth=2, label='Smoothed Intensity')
