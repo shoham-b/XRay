@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def plot_intensity_vs_radius(radii_mm, profile_percent, background_profile, profile_subtracted, base_name, output_dir, start_radius_mm=None, peak_radii=None, peak_d_spacings=None, profile_smoothed=None):
     """Plots Normalized Intensity vs. Radius (mm)."""
     plt.figure(figsize=(10, 6))
-    plt.plot(radii_mm, profile_percent, color='lightgray', linewidth=1.5, label='Raw Intensity')
+    plt.plot(radii_mm, profile_percent, color='black', linewidth=1.5, label='Raw Intensity')
     if background_profile is not None:
         plt.plot(radii_mm, background_profile, color='green', linestyle='--', label='Background (Polynomial)')
     # User request: "only show the smotthed"
@@ -282,7 +282,7 @@ def create_interactive_plot(two_theta_deg, profile_percent, profile_subtracted,
     fig.add_trace(go.Scatter(
         x=two_theta_deg, y=profile_percent,
         mode='lines', name='Raw Data',
-        line=dict(color='lightgray', width=1),
+        line=dict(color='black', width=1),
         opacity=0.5
     ))
 
@@ -360,7 +360,7 @@ def create_interactive_radius_plot(radii_mm, profile_percent, background_profile
     fig.add_trace(go.Scatter(
         x=radii_mm, y=profile_percent,
         mode='lines', name='Raw Intensity',
-        line=dict(color='lightgray', width=1.5)
+        line=dict(color='black', width=1.5)
     ))
 
     if background_profile is not None:
