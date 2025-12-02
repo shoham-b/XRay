@@ -221,7 +221,10 @@ def process_diffraction_image(image_path, phys_w_mm, phys_h_mm, distance_L_mm, w
         'Intensity_Smoothed': profile_for_peaks
     })
 
-    csv_path = base_output_dir / f"{base_name}_analysis_data.csv"
+    csv_dir = base_output_dir / "csv"
+    csv_dir.mkdir(parents=True, exist_ok=True)
+
+    csv_path = csv_dir / f"{base_name}_analysis_data.csv"
     df.to_csv(csv_path, index=False)
 
     # --- 11. Generate Interactive Plots & HTML Report ---
