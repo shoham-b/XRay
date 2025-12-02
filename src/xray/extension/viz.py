@@ -644,7 +644,7 @@ def generate_multi_image_report(output_dir, results_list):
                 </div>
             """
             
-        csv_link = Path(res['csv_path']).name
+        csv_link = Path(res['csv_path']).relative_to(output_dir)
         
         # Tab Header
         # active_class = "active" if i == 0 else "" # Combined is now active
