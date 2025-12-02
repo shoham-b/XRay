@@ -226,7 +226,11 @@ def main():
             sigma = p['sigma']
             intensity_norm = p.get('intensity_norm', 1.0)
             
-            half_height = intensity_norm * 0.4
+            # Ensure minimum visibility for weak peaks
+            # User reported "intensities disappeared", likely due to small normalized values.
+            # We enforce a minimum half_height of 0.1 (total height 0.2)
+            min_half_height = 0.1
+            half_height = max(intensity_norm * 0.4, min_half_height)
             
             ax.errorbar(theta, y, xerr=sigma, fmt='none', ecolor=color, elinewidth=2, capsize=5)
             ax.vlines(theta, y - half_height, y + half_height, colors=color, linewidth=4)
