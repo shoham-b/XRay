@@ -149,7 +149,8 @@ def main():
         peak_angles = two_theta[peak_indices]
         
         # Get intensities for the remaining peaks
-        peak_intensities = signal_for_peaks[peak_indices]
+        # Use original smoothed intensity, not the amplified one used for peak finding
+        peak_intensities = intensity_smoothed[peak_indices]
         
         # Normalize intensities by max(peaks[1:])
         if len(peak_intensities) > 0:

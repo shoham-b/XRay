@@ -99,7 +99,8 @@ def main():
         else:
             peak_indices = np.array([], dtype=int)
             
-        current_peak_intensities = signal_for_peaks[peak_indices]
+        # Use original smoothed intensity for values, not the amplified one
+        current_peak_intensities = intensity_smoothed[peak_indices]
         if len(current_peak_intensities) > 0:
             max_val = np.max(current_peak_intensities)
             if max_val > 0:
@@ -109,10 +110,25 @@ def main():
         else:
             norm_intensities = []
         
+        # --- Peak Width Calculation ---
+        current_widths_deg = []
+        if len(peak_indices) > 0:
+            widths_samples, width_heights, left_ips, right_ips = calc.peak_widths(
+                signal_for_peaks, peak_indices, rel_height=0.5
+            )
+            left_deg = np.interp(left_ips, np.arange(len(two_theta)), two_theta)
+            right_deg = np.interp(right_ips, np.arange(len(two_theta)), two_theta)
+            current_widths_deg = right_deg - left_deg
+        else:
+            current_widths_deg = np.array([])
+        
         # Collect peaks
         for k, idx in enumerate(peak_indices):
             theta = two_theta[idx]
             intensity_norm = norm_intensities[k]
+            
+            # Use calculated width or default
+            width_deg = current_widths_deg[k] if k < len(current_widths_deg) else 0.1
             
             # Calculate L for this peak
             if theta > 0.1:
@@ -129,7 +145,8 @@ def main():
                 'label': label,
                 'color': colors[i],
                 'sigma': sigma_theta_deg,
-                'intensity_norm': intensity_norm
+                'intensity_norm': intensity_norm,
+                'width_deg': width_deg
             })
 
     # 2. Group Peaks
@@ -218,6 +235,11 @@ def main():
         for i in y_positions:
             ax.hlines(i, 0, 45, colors='gray', linestyles=':', alpha=0.3)
             
+        # Calculate max width for normalization in this plot
+        all_widths = [p.get('width_deg', 0.1) for p in peaks_list]
+        max_width = max(all_widths) if all_widths else 1.0
+        if max_width == 0: max_width = 1.0
+            
         for p in peaks_list:
             y = p['sample_idx']
             # Use group_color if available, else sample color (though all should have group_color now)
@@ -225,6 +247,11 @@ def main():
             theta = p['theta']
             sigma = p['sigma']
             intensity_norm = p.get('intensity_norm', 1.0)
+            width_deg = p.get('width_deg', 0.1)
+            
+            # Normalize width
+            lw = (width_deg / max_width) * 6
+            lw = np.clip(lw, 1.5, 8)
             
             # Ensure minimum visibility for weak peaks
             # User reported "intensities disappeared", likely due to small normalized values.
@@ -233,7 +260,7 @@ def main():
             half_height = max(intensity_norm * 0.4, min_half_height)
             
             ax.errorbar(theta, y, xerr=sigma, fmt='none', ecolor=color, elinewidth=2, capsize=5)
-            ax.vlines(theta, y - half_height, y + half_height, colors=color, linewidth=4)
+            ax.vlines(theta, y - half_height, y + half_height, colors=color, linewidth=lw)
             
         ax.set_yticks(y_positions)
         ax.set_yticklabels(labels)
