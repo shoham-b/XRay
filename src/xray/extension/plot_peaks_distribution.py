@@ -24,15 +24,12 @@ def main():
     # Define colors for each sample
     colors = ['blue', 'green', 'purple', 'orange']
     
-    fig, ax = plt.subplots(figsize=(12, 6))
+    all_peaks_data = []
     
-    # We will plot on y-axis: 0, 1, 2, 3
-    y_positions = range(len(files_map))
-    labels = [f[0] for f in files_map]
+    print("Collecting peaks for distribution plot...")
     
     for i, (label, filename) in enumerate(files_map):
         file_path = artifacts_dir / filename
-        color = colors[i % len(colors)]
         
         if not file_path.exists():
             print(f"Warning: File not found: {file_path}")
@@ -49,107 +46,59 @@ def main():
         if end_search_idx >= len(two_theta):
             end_search_idx = None
             
-        # calc.find_initial_peaks now handles the log transformation internally.
-        # We just pass the linear signal (amplified if needed).
         if label in ["ChCl", "Eutectic", "1 ChCL - 10 Urea"]:
              signal_for_peaks = intensity_smoothed * 20
         else:
              signal_for_peaks = intensity_smoothed
             
         if label in ["Eutectic", "1 ChCL - 10 Urea"]:
-            # User request: "in eutenctic improve peak finding it is not, make for it the peak detenction find more peaks in area 0 to 10"
-            # Applying same logic to 10_1
             idx_10 = np.searchsorted(two_theta, 10.0)
-            
             p1, _, _ = calc.find_initial_peaks(
-                signal_for_peaks,
-                start_search_idx=0,
-                end_search_idx=idx_10,
-                prominence=0.01
+                signal_for_peaks, start_search_idx=0, end_search_idx=idx_10, prominence=0.01
             )
-            
             p2, _, _ = calc.find_initial_peaks(
-                signal_for_peaks,
-                start_search_idx=idx_10,
-                end_search_idx=end_search_idx,
-                prominence=0.05
+                signal_for_peaks, start_search_idx=idx_10, end_search_idx=end_search_idx, prominence=0.05
             )
-            
             peak_indices = np.concatenate([p1, p2])
             peak_indices = np.sort(np.unique(peak_indices))
         else:
-            peak_indices, peak_props, _ = calc.find_initial_peaks(
-                signal_for_peaks,
-                start_search_idx=0,
-                end_search_idx=end_search_idx
+            peak_indices, _, _ = calc.find_initial_peaks(
+                signal_for_peaks, start_search_idx=0, end_search_idx=end_search_idx
             )
         
-        # Calculate fit error (estimated from noise)
-        # We estimate noise as std(Intensity_Raw - Intensity_Smoothed)
-        # But we only have Intensity_Smoothed in CSV.
-        # We need Intensity_Raw.
+        # Calculate fit error
         if 'Intensity_Raw' in df.columns:
             intensity_raw = df['Intensity_Raw'].values
             residuals = intensity_raw - intensity_smoothed
-            # Estimate noise from the lower 50% of residuals to avoid peaks
-            # Or just take std of residuals
             fit_error = np.std(residuals)
         else:
-            # Fallback if Raw not available (though it should be)
             fit_error = 0.5 
             
-        # Calculate sigma_r
-        # User formula: sqrt(2 + fit_error)
-        # Assuming 2 is in same units as fit_error (intensity?) or maybe pixels?
-        # If 2 is pixels, we need pixel_scale_mm.
-        # Let's assume the user means "2 pixels variance + fit error variance" or similar.
-        # But without pixel scale, we can't convert 2 pixels to mm.
-        # However, we can estimate pixel_scale_mm from the radius array.
-        # radii_mm is monotonic.
-        
         radii_mm = df['Radius_mm'].values
         if len(radii_mm) > 1:
             pixel_scale_mm = np.mean(np.diff(radii_mm))
         else:
-            pixel_scale_mm = 0.05 # Default guess
+            pixel_scale_mm = 0.05
             
-        # If "2" means "2 pixels", then in mm it is 2 * pixel_scale_mm?
-        # Or maybe "2" is already in mm^2?
-        # Let's assume the user means: sigma_r_mm = sqrt( (2*pixel_scale)**2 + (fit_error_mm)**2 )?
-        # Or maybe simply: sigma_r = sqrt(2 + fit_error) is a value in some unit.
-        # Given the ambiguity, and "get fit error from background fit",
-        # I will use a robust estimation:
-        # sigma_r_mm = pixel_scale_mm * np.sqrt(2 + fit_error) 
-        # (Assuming fit_error is dimensionless or pixel-like).
-        
         sigma_r_mm = pixel_scale_mm * np.sqrt(2 + fit_error)
 
-        # Calculate L (distance)
-        # L = r / tan(2theta)
-        # Use a point with reasonable angle (e.g. max angle) to avoid division by zero near 0
-        idx_L = -1
-        if two_theta[idx_L] > 0.1:
-            L_mm = radii_mm[idx_L] / np.tan(np.radians(two_theta[idx_L]))
-        else:
-            L_mm = 100.0 # Fallback
-            
-        # Calculate sigma_theta
-        # User formula: arctan(r std / L)
-        # sigma_theta_rad = arctan(sigma_r / L)
-        sigma_theta_rad = np.arctan(sigma_r_mm / L_mm)
-        sigma_theta_deg = np.degrees(sigma_theta_rad)
-        
-        # Ignore the first peak (as per user request)
+        # Ignore the first peak
         if len(peak_indices) > 1:
             peak_indices = peak_indices[1:]
         else:
-            # If only 0 or 1 peak found, and we ignore the first, we have nothing.
             peak_indices = np.array([], dtype=int)
 
-        peak_angles = two_theta[peak_indices]
+        # Calculate Widths
+        current_widths_deg = []
+        if len(peak_indices) > 0:
+            widths_samples, _, left_ips, right_ips = calc.peak_widths(
+                signal_for_peaks, peak_indices, rel_height=0.5
+            )
+            left_deg = np.interp(left_ips, np.arange(len(two_theta)), two_theta)
+            right_deg = np.interp(right_ips, np.arange(len(two_theta)), two_theta)
+            current_widths_deg = right_deg - left_deg
         
-        # Get intensities for the remaining peaks
-        # Use original smoothed intensity, not the amplified one used for peak finding
+        # Get intensities
         peak_intensities = intensity_smoothed[peak_indices]
         
         # Normalize intensities by max(peaks[1:])
@@ -161,40 +110,62 @@ def main():
                 normalized_intensities = np.zeros_like(peak_intensities)
         else:
             normalized_intensities = np.array([])
+            
+        # Store peak data
+        for k, idx in enumerate(peak_indices):
+            theta = two_theta[idx]
+            
+            # Calculate L
+            if theta > 0.1:
+                L_mm = radii_mm[idx] / np.tan(np.radians(theta))
+            else:
+                L_mm = 100.0
+                
+            sigma_theta_rad = np.arctan(sigma_r_mm / L_mm)
+            sigma_theta_deg = np.degrees(sigma_theta_rad)
+            
+            width_deg = current_widths_deg[k] if k < len(current_widths_deg) else 0.1
+            
+            all_peaks_data.append({
+                'sample_idx': i,
+                'theta': theta,
+                'sigma': sigma_theta_deg,
+                'intensity_norm': normalized_intensities[k],
+                'width_deg': width_deg,
+                'color': colors[i % len(colors)]
+            })
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(12, 6))
+    y_positions = range(len(files_map))
+    labels = [f[0] for f in files_map]
+    
+    # Calculate global max width for normalization
+    all_widths = [p['width_deg'] for p in all_peaks_data]
+    max_width = max(all_widths) if all_widths else 1.0
+    if max_width == 0: max_width = 1.0
+    
+    # Draw rows
+    for i in y_positions:
+        ax.hlines(i, 0, 45, colors='gray', linestyles=':', alpha=0.3)
         
-        # Plot vertical lines for each peak at the specific y position
-        y_center = i
+    for p in all_peaks_data:
+        y = p['sample_idx']
+        theta = p['theta']
+        sigma = p['sigma']
+        intensity_norm = p['intensity_norm']
+        width_deg = p['width_deg']
+        color = p['color']
         
-        # User request: "set the length of each line to be representation of the peak intensity"
-        # We map normalized intensity (0 to 1) to a height.
-        # Max height should be around 0.4 (so total 0.8) to fit in the row.
+        # Normalize width
+        lw = (width_deg / max_width) * 6
+        lw = np.clip(lw, 1.5, 8)
+        
         max_half_height = 0.4
+        half_heights = intensity_norm * max_half_height
         
-        # Calculate top and bottom for each line
-        # We want the line to be centered at y_center? 
-        # Or maybe growing from y_center? 
-        # Usually distribution plots have lines centered.
-        
-        half_heights = normalized_intensities * max_half_height
-        
-        # User request: "make each line thicker"
-        # User request: "add error bar in x"
-        
-        if len(peak_angles) > 0:
-            ax.errorbar(peak_angles, [y_center] * len(peak_angles), 
-                        xerr=sigma_theta_deg, # Use scalar sigma
-                        fmt='none', 
-                        ecolor=color, 
-                        elinewidth=2, # Thicker error bar
-                        capsize=5)
-                        
-            # Plot the main line (marker) thicker, with varying heights
-            # vlines supports array-like ymin and ymax
-            ax.vlines(peak_angles, y_center - half_heights, y_center + half_heights, 
-                      colors=color, linewidth=4) # Thicker line (was 2)
-        
-        # Optional: Add a horizontal line for the "row"
-        ax.hlines(y_center, 0, 45, colors='gray', linestyles=':', alpha=0.3)
+        ax.errorbar(theta, y, xerr=sigma, fmt='none', ecolor=color, elinewidth=2, capsize=5)
+        ax.vlines(theta, y - half_heights, y + half_heights, colors=color, linewidth=lw)
 
     ax.set_yticks(y_positions)
     ax.set_yticklabels(labels)
