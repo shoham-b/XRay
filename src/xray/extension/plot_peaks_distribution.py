@@ -139,25 +139,58 @@ def main():
         sigma_theta_rad = np.arctan(sigma_r_mm / L_mm)
         sigma_theta_deg = np.degrees(sigma_theta_rad)
         
+        # Ignore the first peak (as per user request)
+        if len(peak_indices) > 1:
+            peak_indices = peak_indices[1:]
+        else:
+            # If only 0 or 1 peak found, and we ignore the first, we have nothing.
+            peak_indices = np.array([], dtype=int)
+
         peak_angles = two_theta[peak_indices]
+        
+        # Get intensities for the remaining peaks
+        peak_intensities = signal_for_peaks[peak_indices]
+        
+        # Normalize intensities by max(peaks[1:])
+        if len(peak_intensities) > 0:
+            max_intensity = np.max(peak_intensities)
+            if max_intensity > 0:
+                normalized_intensities = peak_intensities / max_intensity
+            else:
+                normalized_intensities = np.zeros_like(peak_intensities)
+        else:
+            normalized_intensities = np.array([])
         
         # Plot vertical lines for each peak at the specific y position
         y_center = i
-        half_height = 0.3
+        
+        # User request: "set the length of each line to be representation of the peak intensity"
+        # We map normalized intensity (0 to 1) to a height.
+        # Max height should be around 0.4 (so total 0.8) to fit in the row.
+        max_half_height = 0.4
+        
+        # Calculate top and bottom for each line
+        # We want the line to be centered at y_center? 
+        # Or maybe growing from y_center? 
+        # Usually distribution plots have lines centered.
+        
+        half_heights = normalized_intensities * max_half_height
         
         # User request: "make each line thicker"
         # User request: "add error bar in x"
         
-        ax.errorbar(peak_angles, [y_center] * len(peak_angles), 
-                    xerr=sigma_theta_deg, 
-                    fmt='none', 
-                    ecolor=color, 
-                    elinewidth=2, # Thicker error bar
-                    capsize=5)
-                    
-        # Plot the main line (marker) thicker
-        ax.vlines(peak_angles, y_center - half_height, y_center + half_height, 
-                  colors=color, linewidth=4) # Thicker line (was 2)
+        if len(peak_angles) > 0:
+            ax.errorbar(peak_angles, [y_center] * len(peak_angles), 
+                        xerr=sigma_theta_deg, # Use scalar sigma
+                        fmt='none', 
+                        ecolor=color, 
+                        elinewidth=2, # Thicker error bar
+                        capsize=5)
+                        
+            # Plot the main line (marker) thicker, with varying heights
+            # vlines supports array-like ymin and ymax
+            ax.vlines(peak_angles, y_center - half_heights, y_center + half_heights, 
+                      colors=color, linewidth=4) # Thicker line (was 2)
         
         # Optional: Add a horizontal line for the "row"
         ax.hlines(y_center, 0, 45, colors='gray', linestyles=':', alpha=0.3)

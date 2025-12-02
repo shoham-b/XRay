@@ -93,9 +93,26 @@ def main():
             
         sigma_r_mm = pixel_scale_mm * np.sqrt(2 + fit_error)
         
+        # Ignore first peak
+        if len(peak_indices) > 1:
+            peak_indices = peak_indices[1:]
+        else:
+            peak_indices = np.array([], dtype=int)
+            
+        current_peak_intensities = signal_for_peaks[peak_indices]
+        if len(current_peak_intensities) > 0:
+            max_val = np.max(current_peak_intensities)
+            if max_val > 0:
+                norm_intensities = current_peak_intensities / max_val
+            else:
+                norm_intensities = np.zeros_like(current_peak_intensities)
+        else:
+            norm_intensities = []
+        
         # Collect peaks
-        for idx in peak_indices:
+        for k, idx in enumerate(peak_indices):
             theta = two_theta[idx]
+            intensity_norm = norm_intensities[k]
             
             # Calculate L for this peak
             if theta > 0.1:
@@ -111,7 +128,8 @@ def main():
                 'sample_idx': i,
                 'label': label,
                 'color': colors[i],
-                'sigma': sigma_theta_deg
+                'sigma': sigma_theta_deg,
+                'intensity_norm': intensity_norm
             })
 
     # 2. Group Peaks
@@ -206,9 +224,12 @@ def main():
             color = p.get('group_color', p['color'])
             theta = p['theta']
             sigma = p['sigma']
+            intensity_norm = p.get('intensity_norm', 1.0)
+            
+            half_height = intensity_norm * 0.4
             
             ax.errorbar(theta, y, xerr=sigma, fmt='none', ecolor=color, elinewidth=2, capsize=5)
-            ax.vlines(theta, y - 0.3, y + 0.3, colors=color, linewidth=4)
+            ax.vlines(theta, y - half_height, y + half_height, colors=color, linewidth=4)
             
         ax.set_yticks(y_positions)
         ax.set_yticklabels(labels)
